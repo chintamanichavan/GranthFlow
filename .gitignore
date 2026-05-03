@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# user data lives outside the repo when deployed; keep dir but ignore content
+data/files/*
+data/covers/*
+data/*.db
+data/*.db-journal
+!data/files/.gitkeep
+!data/covers/.gitkeep

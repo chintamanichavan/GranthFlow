@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}library{% endblock %}
+{% block main %}
+  {% if books %}
+  <ul class="grid">
+    {% for b in books %}
+      <li class="card">
+        <a href="/book/{{ b.id }}" class="cover-link">
+          {% if b.cover_path %}
+            <img src="/book/{{ b.id }}/cover" alt="cover of {{ b.title }}" loading="lazy">
+          {% else %}
+            <div class="cover-placeholder">{{ b.title[:1] }}</div>
+          {% endif %}
+        </a>
+        <div class="meta">
+          <a href="/book/{{ b.id }}" class="title">{{ b.title }}</a>
+          {% if b.author %}<div class="author">{{ b.author }}</div>{% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty">
+    <p>no books yet — add an epub up top.</p>
+  </div>
+  {% endif %}
+{% endblock %}

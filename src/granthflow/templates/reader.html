@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ book.title }} — reader</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/reader.css">
+</head>
+<body class="reader-body">
+  <header class="reader-bar">
+    <a href="/book/{{ book.id }}" class="brand">← {{ book.title }}</a>
+    <div class="reader-controls">
+      <button id="prev" class="btn">‹</button>
+      <span id="loc-label" class="loc">…</span>
+      <button id="next" class="btn">›</button>
+    </div>
+  </header>
+
+  <div class="viewer-frame">
+    <div id="viewer"></div>
+    <div class="drag-zone drag-tl" data-dir="prev" data-anchor="tl"></div>
+    <div class="drag-zone drag-tr" data-dir="next" data-anchor="tr"></div>
+    <div class="drag-zone drag-bl" data-dir="prev" data-anchor="bl"></div>
+    <div class="drag-zone drag-br" data-dir="next" data-anchor="br"></div>
+  </div>
+
+  <div id="hl-popup" hidden>
+    <div class="hl-colors">
+      <button data-color="yellow" class="swatch yellow" title="yellow"></button>
+      <button data-color="green"  class="swatch green"  title="green"></button>
+      <button data-color="pink"   class="swatch pink"   title="pink"></button>
+      <button data-color="blue"   class="swatch blue"   title="blue"></button>
+    </div>
+    <textarea id="hl-note" placeholder="note (optional)" rows="2"></textarea>
+    <input id="hl-tags" type="text" placeholder="tags, comma-separated">
+    <div class="hl-actions">
+      <button id="hl-save" class="btn primary">save</button>
+      <button id="hl-cancel" class="btn">cancel</button>
+    </div>
+  </div>
+
+  <script>
+    window.BOOK = {
+      id: {{ book.id }},
+      fileUrl: "/book/{{ book.id }}/book.epub",
+      lastLocation: {{ (book.last_location or '')|tojson }}
+    };
+  </script>
+  <script src="/static/vendor/jszip.min.js"></script>
+  <script src="/static/vendor/epub.min.js"></script>
+  <script src="/static/vendor/html2canvas.min.js"></script>
+  <script src="/static/reader.js"></script>
+</body>
+</html>

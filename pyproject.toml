@@ -1,0 +1,42 @@
+[project]
+name = "granthflow"
+version = "0.1.0"
+description = "Personal EPUB reader with highlights, runs on homelab behind Tailscale"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.12",
+    "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.27",
+    "mypy>=1.13",
+    "ruff>=0.7",
+    "playwright>=1.48",
+]
+
+[project.scripts]
+granthflow = "granthflow.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/granthflow"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
