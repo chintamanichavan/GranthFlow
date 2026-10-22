@@ -40,6 +40,7 @@ struct ContentView: View {
         }
         .frame(minWidth: 640, minHeight: 480)
         .background(Color(nsColor: ground))
+        .modifier(Night(on: !["pdf", "epub", "markdown", "text"].contains(document.kind)))
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 if let panel = activePanel {
@@ -90,9 +91,14 @@ struct ContentView: View {
         }
     }
 
-    /// What shows behind the bar: paper for things you read, the system's grey around PDF pages.
+    /// What shows behind the bar: paper for things you read, the system's grey around PDF pages,
+    /// and the night of a program's cover for bytes.
     private var ground: NSColor {
-        document.kind == "pdf" ? .underPageBackgroundColor : Theme.paper.window
+        switch document.kind {
+        case "pdf": .underPageBackgroundColor
+        case "epub", "markdown", "text": Theme.paper.window
+        default: Theme.night.window
+        }
     }
 
     private var activePanel: AnyView? {
@@ -159,3 +165,11 @@ struct ContentView: View {
 
 /// NSUndoManager needs an object target; the real state lives in the SwiftUI binding.
 final class UndoProxy: NSObject { static let shared = UndoProxy() }
+
+/// Bytes sit on a dark ground in light mode too, so the bar and cards over them go dark with it.
+private struct Night: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { content.environment(\.colorScheme, .dark) } else { content }
+    }
+}
