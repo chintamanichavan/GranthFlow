@@ -3,11 +3,12 @@ import SwiftUI
 
 struct ActionBar: View {
     @Binding var active: DocumentAction?
+    let kind: String
 
     var body: some View {
         HStack(spacing: 4) {
             ForEach(DocumentAction.allCases) { action in
-                ActionButton(action: action, isActive: active == action) {
+                ActionButton(action: action, isActive: active == action, unavailable: action.unavailableReason(for: kind)) {
                     active = active == action ? nil : action
                 }
             }
@@ -24,6 +25,7 @@ struct ActionBar: View {
 private struct ActionButton: View {
     let action: DocumentAction
     let isActive: Bool
+    let unavailable: String?
     let toggle: () -> Void
 
     var body: some View {
@@ -36,9 +38,9 @@ private struct ActionButton: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .disabled(!action.isBuilt)
-        .opacity(action.isBuilt ? 1 : 0.4)
-        .help(action.isBuilt ? action.title : "\(action.title) is not built yet")
+        .disabled(unavailable != nil)
+        .opacity(unavailable == nil ? 1 : 0.4)
+        .help(unavailable ?? action.title)
         .accessibilityIdentifier("action.\(action.rawValue)")
         .accessibilityAddTraits(isActive ? .isSelected : [])
     }

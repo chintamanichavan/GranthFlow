@@ -18,11 +18,11 @@ final class RenderTests: XCTestCase {
     }
 
     func testActionBarKeepsItsSizeWhicheverActionIsActive() {
-        let idle = render(ActionBar(active: .constant(nil)).padding(30).background(Color.white), named: "actionbar-idle")
+        let idle = render(ActionBar(active: .constant(nil), kind: "markdown").padding(30).background(Color.white), named: "actionbar-idle")
         XCTAssertGreaterThan(idle.width, 300)
         XCTAssertLessThan(idle.height, 120)
         for action in DocumentAction.allCases {
-            let size = render(ActionBar(active: .constant(action)).padding(30).background(Color.white), named: "actionbar-\(action.rawValue)")
+            let size = render(ActionBar(active: .constant(action), kind: "markdown").padding(30).background(Color.white), named: "actionbar-\(action.rawValue)")
             XCTAssertEqual(size.height, idle.height, accuracy: 1, action.title)   // the bar never changes shape
         }
     }
@@ -36,5 +36,18 @@ final class RenderTests: XCTestCase {
         let size = render(panel, named: "panel-info")
         XCTAssertEqual(size.width, 620, accuracy: 1)
         XCTAssertGreaterThan(size.height, 150)
+    }
+
+    func testContentsPanelIndentsByLevelAndKeepsItsWidth() {
+        let entries = Contents.parseOutline("1\tProject notes\n5\t  Status\n9\t    Open questions\n14\t  Next steps\n")
+        let size = render(ContentsPanel(entries: entries, current: 5, choose: { _ in }).frame(height: 300).background(Color(white: 0.95)),
+                          named: "contents-panel")
+        XCTAssertEqual(size.width, 260, accuracy: 1)
+        // ScrollView content does not draw off-screen, so the rows are drawn on their own as well.
+        let rows = VStack(spacing: 1) {
+            ForEach(entries) { ContentsRow(entry: $0, isCurrent: $0.target == 5, choose: {}) }
+        }
+        let rowsSize = render(rows.frame(width: 248).padding(6).background(Color(white: 0.95)), named: "contents-rows")
+        XCTAssertGreaterThan(rowsSize.height, CGFloat(entries.count) * 20)
     }
 }

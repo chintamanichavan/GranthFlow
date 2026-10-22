@@ -93,6 +93,28 @@ final class AnyfileUITests: XCTestCase {
         XCTAssertTrue(text(of: rendered).contains("item"))
     }
 
+    func testMarkdownContentsJumpsToHeading() {
+        let body = (1...80).map { "line \($0)" }.joined(separator: "\n")
+        let app = launch(Data("# Top\n\(body)\n## Bottom\nlast\n".utf8), as: "long.md")
+        let editor = element(app, "textEditor")
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        element(app, "action.contents").click()
+        let bottom = app.buttons["Bottom"].firstMatch
+        XCTAssertTrue(bottom.waitForExistence(timeout: 5))
+        bottom.click()
+        app.typeText("X")                                   // the jump selected the heading line and focused the editor
+        let replaced = NSPredicate(format: "value CONTAINS %@ AND NOT (value CONTAINS %@)", "line 80\nX\nlast", "## Bottom")
+        expectation(for: replaced, evaluatedWith: editor)
+        waitForExpectations(timeout: 5)
+    }
+
+    func testContentsDisabledForPlainText() {
+        let app = launch(Data("alpha\n".utf8), as: "notes.txt")
+        XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))
+        XCTAssertFalse(element(app, "action.contents").isEnabled)
+        XCTAssertTrue(element(app, "action.info").isEnabled)
+    }
+
     func testPdfOpensAndExtractedTextShows() {
         let pdf = """
         %PDF-1.4
@@ -129,8 +151,11 @@ final class AnyfileUITests: XCTestCase {
         XCTAssertTrue(text(of: element(app, "kindLabel")).contains("epub"))
         expectation(for: NSPredicate(format: "value CONTAINS %@", "Hello book & reader."), evaluatedWith: reading)
         waitForExpectations(timeout: 5)
-        XCTAssertTrue(app.staticTexts["Opening"].exists)
-        app.staticTexts["Second Heading"].firstMatch.click()
+        XCTAssertFalse(element(app, "contentsPanel").exists)          // chapters stay out of the way until asked for
+        element(app, "action.contents").click()
+        XCTAssertTrue(element(app, "contentsPanel").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Opening"].exists)
+        app.buttons["Second Heading"].firstMatch.click()
         expectation(for: NSPredicate(format: "value CONTAINS %@", "Closing words."), evaluatedWith: reading)
         waitForExpectations(timeout: 5)
     }

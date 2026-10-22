@@ -3,6 +3,8 @@ import SwiftUI
 
 struct MarkdownPane: View {
     @Binding var document: AnyfileDocument
+    /// A heading's line number from Contents, followed in both modes.
+    var jump: Jump? = nil
     @State private var showPreview = false
 
     var body: some View {
@@ -17,15 +19,26 @@ struct MarkdownPane: View {
             .accessibilityIdentifier("markdownMode")
             Divider()
             if showPreview {
-                ScrollView {
-                    Text(MarkdownRenderer.render(document.text))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(MarkdownRenderer.sections(document.text), id: \.line) { section in
+                                Text(section.text)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .id(section.line)
+                            }
+                        }
                         .padding(16)
+                        .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("markdownPreview")
+                    }
+                    .onChange(of: jump) { _, jump in
+                        if let jump { withAnimation { proxy.scrollTo(jump.target, anchor: .top) } }
+                    }
                 }
             } else {
-                TextPane(text: $document.text)
+                TextPane(text: $document.text, jump: jump)
             }
         }
     }
@@ -60,6 +73,23 @@ enum MarkdownRenderer {
             out += AttributedString("\n")
         }
         return out
+    }
+
+    /// The source split before each heading outside a code fence, each piece rendered, keyed by the
+    /// 1-based line it starts on. Contents targets the same line numbers, so the preview can scroll there.
+    static func sections(_ source: String) -> [(line: Int, text: AttributedString)] {
+        let lines = source.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        var starts = [0]
+        var inFence = false
+        for (i, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { inFence.toggle() }
+            else if !inFence, i > 0, headingLevel(trimmed) != nil { starts.append(i) }
+        }
+        return starts.enumerated().map { n, start in
+            let end = n + 1 < starts.count ? starts[n + 1] : lines.count
+            return (start + 1, render(lines[start..<end].joined(separator: "\n")))
+        }
     }
 
     static func headingLevel(_ line: String) -> Int? {

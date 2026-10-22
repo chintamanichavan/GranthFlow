@@ -4,11 +4,13 @@ import PDFKit
 
 struct PdfPane: View {
     let document: AnyfileDocument
+    /// A page index from Contents.
+    var jump: Jump? = nil
     @State private var showText = false
 
     var body: some View {
         HSplitView {
-            PdfKitView(data: document.data)
+            PdfKitView(data: document.data, jump: jump)
                 .frame(minWidth: 300)
             if showText {
                 ScrollView {
@@ -38,6 +40,7 @@ struct PdfPane: View {
 
 struct PdfKitView: NSViewRepresentable {
     let data: Data
+    var jump: Jump? = nil
 
     func makeNSView(context: Context) -> PDFView {
         let v = PDFView()
@@ -55,8 +58,16 @@ struct PdfKitView: NSViewRepresentable {
             v.document = PDFDocument(data: data)
             if let p = v.document?.page(at: min(page, max(0, (v.document?.pageCount ?? 1) - 1))) { v.go(to: p) }
         }
+        if jump != context.coordinator.lastJump {
+            context.coordinator.lastJump = jump
+            if let jump, let p = v.document?.page(at: jump.target) { v.go(to: p) }
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(lastData: data) }
-    final class Coordinator { var lastData: Data; init(lastData: Data) { self.lastData = lastData } }
+    final class Coordinator {
+        var lastData: Data
+        var lastJump: Jump?
+        init(lastData: Data) { self.lastData = lastData }
+    }
 }

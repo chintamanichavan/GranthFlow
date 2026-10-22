@@ -26,8 +26,15 @@ enum DocumentAction: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Actions not built yet stay visible but disabled, so the bar never changes shape.
-    var isBuilt: Bool { self == .edit || self == .info }
+    /// Why the action is disabled for this kind, or nil when it can be used. Disabled actions stay
+    /// visible so the bar never changes shape.
+    func unavailableReason(for kind: String) -> String? {
+        switch self {
+        case .contents: Contents.hasContents(kind: kind) ? nil : "This kind of file has no contents to list"
+        case .find, .mark: "\(title) is not built yet"
+        case .edit, .info: nil
+        }
+    }
 }
 
 enum CommandRole {

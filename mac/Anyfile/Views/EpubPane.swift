@@ -1,4 +1,4 @@
-// EPUB: the chapter list on the left, the selected chapter's text on the right. Both come from the engine.
+// EPUB: one chapter at a time, full width. Contents chooses the chapter; the engine supplies the text.
 import SwiftUI
 import AppKit
 
@@ -20,38 +20,29 @@ struct EpubChapter: Identifiable, Hashable {
 
 struct EpubPane: View {
     let document: AnyfileDocument
-    @State private var chapters: [EpubChapter] = []
-    @State private var selection: Int?
+    /// The chapter number on show. Contents sets it; the pane picks the first chapter when it is nil or gone.
+    @Binding var chapter: Int?
     @State private var text = ""
 
     var body: some View {
-        HSplitView {
-            List(chapters, selection: $selection) { chapter in
-                Text(chapter.title)
-                    .lineLimit(2)
-                    .help(chapter.path)
-            }
-            .frame(minWidth: 160, idealWidth: 220, maxWidth: 360)
-            .accessibilityIdentifier("epubChapters")
-            ReadingText(text: text)
-                .frame(minWidth: 320)
-        }
-        .onAppear { reload() }
-        .onChange(of: document.data) { reload() }      // a command changed the book
-        .onChange(of: selection) { loadText() }
+        ReadingText(text: text)
+            .frame(minWidth: 320)
+            .onAppear { reload() }
+            .onChange(of: document.data) { reload() }      // a command changed the book
+            .onChange(of: chapter) { loadText() }
     }
 
     private func reload() {
         let r = Engine.run("chapters", args: [], on: document.data, name: document.name, kind: document.kind)
-        chapters = EpubChapter.parse(r.output)
+        let chapters = EpubChapter.parse(r.output)
         if chapters.isEmpty { text = r.errorText.isEmpty ? "(this book lists no chapters)" : r.errorText }
-        if selection == nil || !chapters.contains(where: { $0.number == selection }) { selection = chapters.first?.number }
+        if chapter == nil || !chapters.contains(where: { $0.number == chapter }) { chapter = chapters.first?.number }
         loadText()
     }
 
     private func loadText() {
-        guard let selection else { return }
-        let r = Engine.run("text", args: [String(selection)], on: document.data, name: document.name, kind: document.kind)
+        guard let chapter else { return }
+        let r = Engine.run("text", args: [String(chapter)], on: document.data, name: document.name, kind: document.kind)
         text = r.succeeded ? (r.output.isEmpty ? "(no text in this chapter)" : r.output) : r.errorText
     }
 }

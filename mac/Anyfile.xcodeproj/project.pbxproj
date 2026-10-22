@@ -192,7 +192,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
-				LastUpgradeCheck = 2700;
+				LastUpgradeCheck = 2710;
 				TargetAttributes = {
 					DDDDDDDDDDDDDDDDDDDDDD02 = {
 						TestTargetID = DDDDDDDDDDDDDDDDDDDDDD01;
