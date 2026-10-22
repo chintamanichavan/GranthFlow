@@ -5,6 +5,13 @@ struct AnyfileApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
+        // Listed first so it is the window the app opens with.
+        Window("Library", id: "library") {
+            LibraryView()
+        }
+        .defaultSize(width: 1100, height: 760)
+        .keyboardShortcut("l", modifiers: [.command, .shift])
+
         DocumentGroup(newDocument: AnyfileDocument()) { file in
             ContentView(document: file.$document, fileURL: file.fileURL)
         }
@@ -27,7 +34,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
-        !CommandLine.arguments.contains("--open")
-    }
+    /// The library is the starting window, so no empty document is made at launch.
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 }

@@ -137,6 +137,18 @@ final class AnyfileUITests: XCTestCase {
         XCTAssertTrue(text(of: element(app, "findHit.0")).contains("0x2"), text(of: element(app, "findHit.0")))
     }
 
+    func testLibraryShowsOpenedFileAndOpensItAgain() {
+        let app = launch(Data("alpha\n".utf8), as: "shelved.txt")
+        XCTAssertTrue(element(app, "textEditor").waitForExistence(timeout: 10))
+        app.typeKey("w", modifierFlags: .command)                     // close the file
+        app.typeKey("l", modifierFlags: [.command, .shift])          // show the library
+        let item = element(app, "shelf.shelved.txt")
+        XCTAssertTrue(item.waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "section.notes").exists)
+        item.click()
+        XCTAssertTrue(element(app, "textEditor").waitForExistence(timeout: 10))
+    }
+
     func testContentsDisabledForPlainText() {
         let app = launch(Data("alpha\n".utf8), as: "notes.txt")
         XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))

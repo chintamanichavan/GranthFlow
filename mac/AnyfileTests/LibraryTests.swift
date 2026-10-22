@@ -92,4 +92,15 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(KindLabel.label(kind: "binary", data: Data([0x4d, 0x5a])), "Program")
         XCTAssertEqual(KindLabel.label(kind: "binary"), "Data")
     }
+
+    /// The window reads `recent` about ten times per redraw, and each read checks every file exists.
+    func testRecentSpeedAtTheLimit() {
+        let lib = Library(file: dir.appendingPathComponent("l.json"))
+        for i in 0..<Library.limit { lib.recordOpened(file("f\(i).txt"), kind: "text", at: Date(timeIntervalSince1970: Double(i))) }
+        let start = Date()
+        for _ in 0..<10 { XCTAssertEqual(lib.recent.count, Library.limit) }
+        let seconds = Date().timeIntervalSince(start)
+        print(String(format: "recent x10 with %d files: %.4f s", Library.limit, seconds))
+        XCTAssertLessThan(seconds, 0.05)
+    }
 }
