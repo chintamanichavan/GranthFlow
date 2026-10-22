@@ -111,3 +111,10 @@ enum Highlights {
         return line
     }
 }
+
+/// AppKit reports selection and page changes even when the app made them itself, which happens
+/// while SwiftUI is updating a view; writing SwiftUI state then is "modifying state during view
+/// update". Reports go through here, so they arrive on the next turn of the run loop instead.
+enum Later {
+    static func report(_ deliver: @escaping () -> Void) { DispatchQueue.main.async(execute: deliver) }
+}

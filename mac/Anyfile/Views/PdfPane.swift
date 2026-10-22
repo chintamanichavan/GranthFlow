@@ -113,13 +113,15 @@ struct PdfKitView: NSViewRepresentable {
         func observe(_ v: PDFView) {
             token = NotificationCenter.default.addObserver(forName: .PDFViewPageChanged, object: v, queue: .main) { [weak self, weak v] _ in
                 guard let v, let doc = v.document, let page = v.currentPage else { return }
-                self?.onPage(doc.index(for: page), doc.pageCount)
+                let (index, count) = (doc.index(for: page), doc.pageCount)
+                Later.report { self?.onPage(index, count) }           // go(to:) inside an update posts this
             }
             selectionToken = NotificationCenter.default.addObserver(forName: .PDFViewSelectionChanged, object: v, queue: .main) { [weak self, weak v] _ in
                 guard let v, let doc = v.document, let sel = v.currentSelection, let text = sel.string, !text.isEmpty,
-                      let page = sel.pages.first else { self?.onSelect(nil); return }
+                      let page = sel.pages.first else { Later.report { self?.onSelect(nil) }; return }
                 let index = doc.index(for: page)
-                self?.onSelect(Selection(quote: text, target: index, place: "Page \(index + 1)"))
+                let selection = Selection(quote: text, target: index, place: "Page \(index + 1)")
+                Later.report { self?.onSelect(selection) }
             }
         }
 

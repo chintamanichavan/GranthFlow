@@ -154,7 +154,9 @@ struct ReadingText: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             let r = tv.selectedRange()
-            onSelect(r.length > 0 ? (tv.string as NSString).substring(with: r) : nil)
+            let quote = r.length > 0 ? (tv.string as NSString).substring(with: r) : nil
+            let report = onSelect
+            Later.report { report(quote) }
         }
     }
 }

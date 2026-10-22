@@ -88,10 +88,12 @@ struct TextPane: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             let r = tv.selectedRange()
-            guard r.length > 0 else { return onSelect(nil) }
+            let report = onSelect
+            guard r.length > 0 else { return Later.report { report(nil) } }
             let ns = tv.string as NSString
             let line = Highlights.line(at: r.location, in: ns)
-            onSelect(Selection(quote: ns.substring(with: r), target: line, place: "Line \(line)"))
+            let selection = Selection(quote: ns.substring(with: r), target: line, place: "Line \(line)")
+            Later.report { report(selection) }
         }
 
         func textDidChange(_ notification: Notification) {
