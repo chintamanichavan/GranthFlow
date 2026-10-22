@@ -65,6 +65,8 @@ enum Contents {
 struct Jump: Equatable {
     let target: Int
     let serial: Int
+    /// Text to select at the target, when Find made the jump.
+    var query: String? = nil
 
-    func next(_ target: Int) -> Jump { Jump(target: target, serial: serial + 1) }
+    func next(_ target: Int, query: String? = nil) -> Jump { Jump(target: target, serial: serial + 1, query: query) }
 }

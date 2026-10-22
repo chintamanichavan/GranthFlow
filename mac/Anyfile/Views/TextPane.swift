@@ -31,12 +31,20 @@ struct TextPane: NSViewRepresentable {
         }
         if jump != context.coordinator.lastJump {
             context.coordinator.lastJump = jump
-            if let jump, let range = Self.range(ofLine: jump.target, in: tv.string) {
+            if let jump, let range = Self.selection(for: jump, in: tv.string) {
                 tv.setSelectedRange(range)
                 tv.scrollRangeToVisible(range)
                 tv.window?.makeFirstResponder(tv)           // so typing goes to the place just chosen
             }
         }
+    }
+
+    /// What a jump selects: the first match of its query on the target line, or else the whole line.
+    static func selection(for jump: Jump, in text: String) -> NSRange? {
+        guard let line = range(ofLine: jump.target, in: text) else { return nil }
+        guard let query = jump.query, !query.isEmpty else { return line }
+        let found = (text as NSString).range(of: query, options: .caseInsensitive, range: line)
+        return found.location == NSNotFound ? line : found
     }
 
     /// The UTF-16 range of a 1-based line, without its newline, or nil past the end.

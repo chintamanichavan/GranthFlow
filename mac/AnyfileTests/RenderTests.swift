@@ -50,4 +50,13 @@ final class RenderTests: XCTestCase {
         let rowsSize = render(rows.frame(width: 248).padding(6).background(Color(white: 0.95)), named: "contents-rows")
         XCTAssertGreaterThan(rowsSize.height, CGFloat(entries.count) * 20)
     }
+
+    func testFindRowsShowPlaceAndSnippet() {
+        let doc = AnyfileDocument(data: Data("Call me Ishmael.\nThe whale.\nWhale again, a whale.\n".utf8), name: "m.txt")
+        let hits = Find.hits(for: "whale", in: doc)
+        let rows = VStack(spacing: 1) { ForEach(hits) { FindRow(hit: $0, choose: {}) } }
+        let size = render(rows.frame(width: 560).padding(8).background(Color(white: 0.95)), named: "find-rows")
+        XCTAssertEqual(hits.count, 2)
+        XCTAssertEqual(size.width, 576, accuracy: 1)
+    }
 }

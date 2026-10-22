@@ -12,7 +12,7 @@ struct ContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             if active == .contents {
-                ContentsPanel(entries: entries, current: document.kind == "epub" ? chapter : jump?.target, choose: go)
+                ContentsPanel(entries: entries, current: document.kind == "epub" ? chapter : jump?.target, choose: { go(to: $0) })
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
                     .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.08)))
                     .padding([.leading, .top, .bottom], 12)
@@ -53,10 +53,10 @@ struct ContentView: View {
     @ViewBuilder private var pane: some View {
         switch document.kind {
         case "pdf": PdfPane(document: document, jump: jump)
-        case "epub": EpubPane(document: document, chapter: $chapter)
+        case "epub": EpubPane(document: document, chapter: $chapter, find: jump)
         case "markdown": MarkdownPane(document: $document, jump: jump)
-        case "text": TextPane(text: $document.text)
-        default: HexPane(document: document)
+        case "text": TextPane(text: $document.text, jump: jump)
+        default: HexPane(document: document, jump: jump)
         }
     }
 
@@ -68,14 +68,17 @@ struct ContentView: View {
         case .edit:
             AnyView(CommandPanel(title: "Edit", commands: CommandRole.editCommands(for: document.kind),
                                  document: $document, runsImmediately: false, onApply: apply).id("edit-\(document.kind)"))
+        case .find:
+            AnyView(FindPanel(document: document) { hit, query in go(to: hit.target, query: query) }.id("find-\(document.kind)"))
         default:
             nil
         }
     }
 
-    private func go(to target: Int) {
+    /// Contents passes a target; Find also passes the query, so the pane can select the match.
+    private func go(to target: Int, query: String? = nil) {
         if document.kind == "epub" { chapter = target }
-        else { jump = (jump ?? Jump(target: target, serial: 0)).next(target) }
+        if document.kind != "epub" || query != nil { jump = (jump ?? Jump(target: target, serial: 0)).next(target, query: query) }
     }
 
     /// Replaces the document bytes with a command's result, with undo.

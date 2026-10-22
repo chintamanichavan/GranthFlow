@@ -60,7 +60,14 @@ struct PdfKitView: NSViewRepresentable {
         }
         if jump != context.coordinator.lastJump {
             context.coordinator.lastJump = jump
-            if let jump, let p = v.document?.page(at: jump.target) { v.go(to: p) }
+            if let jump, let doc = v.document, let p = doc.page(at: jump.target) {
+                v.go(to: p)
+                if let query = jump.query,
+                   let match = doc.findString(query, withOptions: .caseInsensitive).first(where: { $0.pages.contains(p) }) {
+                    v.setCurrentSelection(match, animate: true)
+                    v.go(to: match)
+                }
+            }
         }
     }
 

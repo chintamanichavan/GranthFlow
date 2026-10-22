@@ -31,8 +31,8 @@ enum DocumentAction: String, CaseIterable, Identifiable {
     func unavailableReason(for kind: String) -> String? {
         switch self {
         case .contents: Contents.hasContents(kind: kind) ? nil : "This kind of file has no contents to list"
-        case .find, .mark: "\(title) is not built yet"
-        case .edit, .info: nil
+        case .mark: "\(title) is not built yet"
+        case .find, .edit, .info: nil
         }
     }
 }

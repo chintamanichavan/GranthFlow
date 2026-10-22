@@ -3,6 +3,8 @@ import SwiftUI
 
 struct HexPane: View {
     let document: AnyfileDocument
+    /// A byte offset from Find.
+    var jump: Jump? = nil
     @State private var offset: Int = 0
     @State private var jumpText: String = "0"
     private let page = 4096
@@ -17,7 +19,7 @@ struct HexPane: View {
                 TextField("0x0", text: $jumpText)
                     .frame(width: 110)
                     .font(.system(.body, design: .monospaced))
-                    .onSubmit(jump)
+                    .onSubmit(jumpToTypedOffset)
                     .accessibilityIdentifier("hexOffsetField")
                 Text("of \(document.data.count)").foregroundStyle(.secondary).font(.system(.caption, design: .monospaced))
             }
@@ -32,7 +34,15 @@ struct HexPane: View {
                     .accessibilityIdentifier("hexText")
             }
         }
+        .onChange(of: jump) { _, jump in
+            guard let jump else { return }
+            offset = Self.rowStart(of: jump.target)
+            jumpText = String(format: "0x%llx", offset)
+        }
     }
+
+    /// The start of the 16-byte row holding an offset, so the match is on the first row shown.
+    static func rowStart(of offset: Int) -> Int { max(0, offset) / 16 * 16 }
 
     private var dump: String {
         let r = Engine.run("hex", args: [String(offset), String(page)], on: document.data, name: document.name, kind: document.kind)
@@ -44,7 +54,7 @@ struct HexPane: View {
         jumpText = String(format: "0x%llx", offset)
     }
 
-    private func jump() {
+    private func jumpToTypedOffset() {
         let s = jumpText.trimmingCharacters(in: .whitespaces)
         let v = s.lowercased().hasPrefix("0x") ? Int(s.dropFirst(2), radix: 16) : Int(s)
         if let v, v >= 0, v < max(1, document.data.count) { offset = v }

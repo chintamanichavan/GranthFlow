@@ -108,6 +108,35 @@ final class AnyfileUITests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+    func testFindListsMatchesAndJumpsToOne() {
+        let body = (1...80).map { "line \($0)" }.joined(separator: "\n")
+        let app = launch(Data("\(body)\nthe whale surfaces\nlast\n".utf8), as: "long.txt")
+        let editor = element(app, "textEditor")
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        element(app, "action.find").click()
+        let field = element(app, "findField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("WHALE")                             // the field has focus as soon as Find opens
+        let hit = element(app, "findHit.0")
+        XCTAssertTrue(hit.waitForExistence(timeout: 5))
+        XCTAssertTrue(text(of: element(app, "findCount")).contains("1 match"))
+        hit.click()
+        app.typeText("X")                                   // replaces the selected match, not the line
+        expectation(for: NSPredicate(format: "value CONTAINS %@", "the X surfaces"), evaluatedWith: editor)
+        waitForExpectations(timeout: 5)
+    }
+
+    func testFindInBinaryAcceptsHexBytes() {
+        let app = launch(Data([0x00, 0x7f, 0x45, 0x4c, 0x46, 0x00]), as: "blob.bin")
+        XCTAssertTrue(element(app, "hexText").waitForExistence(timeout: 10))
+        element(app, "action.find").click()
+        let field = element(app, "findField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("45 4c")
+        XCTAssertTrue(element(app, "findHit.0").waitForExistence(timeout: 5))
+        XCTAssertTrue(text(of: element(app, "findHit.0")).contains("0x2"), text(of: element(app, "findHit.0")))
+    }
+
     func testContentsDisabledForPlainText() {
         let app = launch(Data("alpha\n".utf8), as: "notes.txt")
         XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))
