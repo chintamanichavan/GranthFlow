@@ -10,7 +10,7 @@ final class AnyfileUITests: XCTestCase {
         let url = dir.appendingPathComponent(name)
         try! contents.write(to: url)
         let app = XCUIApplication()
-        app.launchArguments = ["--open", url.path]
+        app.launchArguments = ["--open", url.path, "--library", dir.appendingPathComponent("library.json").path]
         app.launch()
         return app
     }

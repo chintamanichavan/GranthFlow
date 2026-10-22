@@ -3,11 +3,26 @@ import SwiftUI
 
 struct ContentView: View {
     @Binding var document: AnyfileDocument
+    /// Where the file lives, so the library can remember it; nil until an untitled file is saved.
+    var fileURL: URL?
     @Environment(\.undoManager) private var undoManager
     @State private var active: DocumentAction?
     @State private var entries: [ContentsEntry] = []
     @State private var jump: Jump?
     @State private var chapter: Int?            // EPUB shows one chapter at a time
+
+    /// The place reading stopped is restored here, before any pane appears: the EPUB pane picks
+    /// chapter 1 when it finds none, and that would be recorded over the saved place.
+    init(document: Binding<AnyfileDocument>, fileURL: URL? = nil) {
+        _document = document
+        self.fileURL = fileURL
+        guard let fileURL, let position = Library.shared.entry(for: fileURL)?.position else { return }
+        switch document.wrappedValue.kind {
+        case "epub": _chapter = State(initialValue: position)
+        case "pdf": _jump = State(initialValue: Jump(target: position, serial: 1))
+        default: break
+        }
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -39,6 +54,12 @@ struct ContentView: View {
             .animation(.snappy(duration: 0.2), value: active)
         }
         .onExitCommand { active = nil }
+        .onAppear(perform: remember)
+        .onChange(of: fileURL) { remember() }
+        .onChange(of: chapter) { _, chapter in
+            guard let fileURL, let chapter else { return }
+            Library.shared.recordPosition(fileURL, position: chapter, total: chapterCount)
+        }
         .onChange(of: active) { _, now in if now == .contents { entries = Contents.entries(for: document) } }
         .onChange(of: document.data) { if active == .contents { entries = Contents.entries(for: document) } }
         .toolbar {
@@ -53,7 +74,9 @@ struct ContentView: View {
 
     @ViewBuilder private var pane: some View {
         switch document.kind {
-        case "pdf": PdfPane(document: document, jump: jump)
+        case "pdf": PdfPane(document: document, jump: jump) { page, count in
+            if let fileURL { Library.shared.recordPosition(fileURL, position: page, total: count) }
+        }
         case "epub": EpubPane(document: document, chapter: $chapter, find: jump)
         case "markdown": MarkdownPane(document: $document, jump: jump)
         case "text": TextPane(text: $document.text, jump: jump)
@@ -79,6 +102,14 @@ struct ContentView: View {
         default:
             nil
         }
+    }
+
+    private func remember() {
+        if let fileURL { Library.shared.recordOpened(fileURL, kind: document.kind) }
+    }
+
+    private var chapterCount: Int {
+        EpubChapter.parse(Engine.run("chapters", args: [], on: document.data, name: document.name, kind: document.kind).output).count
     }
 
     /// Contents passes a target; Find also passes the query, so the pane can select the match.

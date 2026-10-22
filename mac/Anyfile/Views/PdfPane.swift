@@ -6,11 +6,13 @@ struct PdfPane: View {
     let document: AnyfileDocument
     /// A page index from Contents.
     var jump: Jump? = nil
+    /// Called with the page index on show and the page count, as the reader moves.
+    var onPage: (Int, Int) -> Void = { _, _ in }
     @State private var showText = false
 
     var body: some View {
         HSplitView {
-            PdfKitView(data: document.data, jump: jump)
+            PdfKitView(data: document.data, jump: jump, onPage: onPage)
                 .frame(minWidth: 300)
             if showText {
                 ScrollView {
@@ -41,6 +43,7 @@ struct PdfPane: View {
 struct PdfKitView: NSViewRepresentable {
     let data: Data
     var jump: Jump? = nil
+    var onPage: (Int, Int) -> Void = { _, _ in }
 
     func makeNSView(context: Context) -> PDFView {
         let v = PDFView()
@@ -48,10 +51,12 @@ struct PdfKitView: NSViewRepresentable {
         v.displayMode = .singlePageContinuous
         v.setAccessibilityIdentifier("pdfView")
         v.document = PDFDocument(data: data)
+        context.coordinator.observe(v)
         return v
     }
 
     func updateNSView(_ v: PDFView, context: Context) {
+        context.coordinator.onPage = onPage
         if context.coordinator.lastData != data {
             context.coordinator.lastData = data
             let page = v.currentPage.flatMap { v.document?.index(for: $0) } ?? 0
@@ -75,6 +80,18 @@ struct PdfKitView: NSViewRepresentable {
     final class Coordinator {
         var lastData: Data
         var lastJump: Jump?
+        var onPage: (Int, Int) -> Void = { _, _ in }
         init(lastData: Data) { self.lastData = lastData }
+
+        private var token: NSObjectProtocol?
+
+        func observe(_ v: PDFView) {
+            token = NotificationCenter.default.addObserver(forName: .PDFViewPageChanged, object: v, queue: .main) { [weak self, weak v] _ in
+                guard let v, let doc = v.document, let page = v.currentPage else { return }
+                self?.onPage(doc.index(for: page), doc.pageCount)
+            }
+        }
+
+        deinit { if let token { NotificationCenter.default.removeObserver(token) } }
     }
 }
