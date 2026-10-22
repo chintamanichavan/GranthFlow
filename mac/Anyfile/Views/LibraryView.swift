@@ -8,6 +8,10 @@ struct LibraryView: View {
     @State private var section: LibrarySection? = .library
     @State private var faces: [String: ShelfFace] = [:]
     private let markStore = MarkStore.shared
+    @State private var query = ""
+    @State private var results: [SearchResult] = []
+    @State private var searched = ""
+    @State private var corpus: [Searchable] = []
 
     /// Tests pass their own library; the app uses the shared one.
     @MainActor init(library: Library? = nil) { _library = State(initialValue: library ?? .shared) }
@@ -28,7 +32,11 @@ struct LibraryView: View {
         } detail: {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    if section == .library, let current = library.continueReading.first {
+                    if !query.isEmpty {
+                        SearchResults(query: searched, results: results, faces: faces, searching: searched != query) { entry, hit in
+                            Navigator.shared.open(entry.url, at: hit.target, selecting: searched)
+                        }
+                    } else if section == .library, let current = library.continueReading.first {
                         Hero(entry: current, face: faces[current.path]) { open(current) }
                     }
                     if section == .marks {
@@ -57,6 +65,8 @@ struct LibraryView: View {
                 }
             }
             .background(Color(nsColor: Theme.library.window))
+            .searchable(text: $query, placement: .toolbar, prompt: "Search every file")
+            .task(id: query) { await search() }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: openPanel) { Label("Open", systemImage: "plus") }
@@ -84,18 +94,31 @@ struct LibraryView: View {
         }
     }
 
+    /// Waits for a pause in typing, then searches every file off the main thread. Files are
+    /// prepared on the first search and again only when the library's files change.
+    private func search() async {
+        guard !query.isEmpty else { results = []; searched = ""; return }
+        try? await Task.sleep(for: .milliseconds(200))
+        guard !Task.isCancelled else { return }
+        let entries = library.recent
+        let q = query
+        let old = corpus
+        let prepared = await Task.detached(priority: .userInitiated) { Search.prepare(entries, reusing: old) }.value
+        corpus = prepared
+        let found = await Task.detached(priority: .userInitiated) { Search.run(q, in: prepared) }.value
+        guard !Task.isCancelled else { return }
+        results = found
+        searched = q
+    }
+
     private func open(_ entry: LibraryEntry) {
         NSDocumentController.shared.openDocument(withContentsOf: entry.url, display: true) { _, _, error in
             if let error { NSApp.presentError(error) }
         }
     }
 
-    /// Opens the mark's file; its window goes to the passage when it sees the pending mark.
     private func open(_ mark: Mark) {
-        markStore.pending = mark
-        NSDocumentController.shared.openDocument(withContentsOf: URL(fileURLWithPath: mark.path), display: true) { _, _, error in
-            if let error { NSApp.presentError(error) }
-        }
+        Navigator.shared.open(URL(fileURLWithPath: mark.path), at: mark.target, selecting: mark.quote)
     }
 
     private func openPanel() { NSDocumentController.shared.openDocument(nil) }
@@ -274,5 +297,59 @@ private struct MarksList: View {
         }
         .frame(maxWidth: 720, alignment: .leading)
         .padding(32)
+    }
+}
+
+/// Matches from every file, grouped by file, each group under the file's face.
+private struct SearchResults: View {
+    let query: String
+    let results: [SearchResult]
+    let faces: [String: ShelfFace]
+    let searching: Bool
+    let open: (LibraryEntry, FindHit) -> Void
+    /// Enough lines to judge a file by; the file's own Find shows the rest.
+    static let shown = 5
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            Text(summary).font(.title2.weight(.semibold))
+                .accessibilityIdentifier("searchSummary")
+            ForEach(results) { result in
+                HStack(alignment: .top, spacing: 18) {
+                    Group {
+                        if let face = faces[result.entry.path] { CoverView(art: face.art) } else { Color.clear }
+                    }
+                    .frame(width: 54, height: 76)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(faces[result.entry.path]?.title ?? result.entry.name).font(.headline)
+                            Text(count(result.hits.count)).font(.callout).foregroundStyle(.secondary)
+                        }
+                        ForEach(result.hits.prefix(Self.shown)) { hit in
+                            FindRow(hit: hit) { open(result.entry, hit) }
+                                .accessibilityIdentifier("searchHit.\(result.entry.name).\(hit.id)")
+                        }
+                        if result.hits.count > Self.shown {
+                            Text("and \(count(result.hits.count - Self.shown)) more — open the file and use Find")
+                                .font(.caption).foregroundStyle(.secondary).padding(.leading, 8)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(32)
+        .frame(maxWidth: 900, alignment: .leading)
+        .opacity(searching ? 0.6 : 1)
+    }
+
+    private var summary: String {
+        if query.isEmpty { return "Searching…" }
+        if results.isEmpty { return "No file contains “\(query)”" }
+        let files = results.count == 1 ? "1 file" : "\(results.count) files"
+        return "“\(query)” in \(files)"
+    }
+
+    private func count(_ n: Int) -> String {
+        n >= Find.limit ? "\(Find.limit)+ matches" : (n == 1 ? "1 match" : "\(n) matches")
     }
 }

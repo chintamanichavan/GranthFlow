@@ -34,8 +34,6 @@ final class MarkStore {
     }()
 
     private(set) var marks: [Mark]
-    /// A mark chosen in the library, waiting for its file's window to open and go there.
-    var pending: Mark?
     private let file: URL
     /// A mark is a passage, not a chapter; longer selections are cut here.
     static let longest = 1000

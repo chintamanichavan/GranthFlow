@@ -59,7 +59,7 @@ struct ContentView: View {
         .onExitCommand { active = nil }
         .onAppear(perform: remember)
         .onChange(of: active) { _, now in if now == .mark { markSelection() } }
-        .onChange(of: markStore.pending) { followPendingMark() }
+        .onChange(of: Navigator.shared.pending) { followRequest() }
         .onChange(of: fileURL) { remember() }
         .onChange(of: chapter) { _, chapter in
             guard let fileURL, let chapter else { return }
@@ -115,7 +115,7 @@ struct ContentView: View {
 
     private func remember() {
         if let fileURL { Library.shared.recordOpened(fileURL, kind: document.kind) }
-        followPendingMark()
+        followRequest()
     }
 
     private var marks: [Mark] { fileURL.map(markStore.marks(for:)) ?? [] }
@@ -129,11 +129,10 @@ struct ContentView: View {
         }
     }
 
-    /// A mark chosen in the library goes to its place once this window shows that file.
-    private func followPendingMark() {
-        guard let mark = markStore.pending, let fileURL, mark.path == fileURL.standardizedFileURL.path else { return }
-        markStore.pending = nil
-        go(to: mark.target, query: mark.quote)
+    /// A mark or search result chosen in the library goes to its place once this window shows that file.
+    private func followRequest() {
+        guard let fileURL, let request = Navigator.shared.take(for: fileURL) else { return }
+        go(to: request.target, query: request.query)
     }
 
     private var chapterCount: Int {

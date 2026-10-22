@@ -55,11 +55,19 @@ enum Find {
     /// Searches each chapter's text as the engine extracts it. Targets are chapter numbers.
     /// One `text` call for the whole book: asking per chapter took 0.6 s for 135 chapters.
     static func chapters(_ query: String, in document: AnyfileDocument) -> [FindHit] {
-        let list = EpubChapter.parse(Engine.run("chapters", args: [], on: document.data, name: document.name, kind: "epub").output)
-        let texts = splitBook(Engine.run("text", args: [], on: document.data, name: document.name, kind: "epub").output)
+        chapters(query, in: bookChapters(document.data, name: document.name))
+    }
+
+    /// A book's chapters with their text, read with two engine calls. Search every file keeps these.
+    static func bookChapters(_ data: Data, name: String) -> [(chapter: EpubChapter, text: String)] {
+        let list = EpubChapter.parse(Engine.run("chapters", args: [], on: data, name: name, kind: "epub").output)
+        let texts = splitBook(Engine.run("text", args: [], on: data, name: name, kind: "epub").output)
+        return list.compactMap { c in texts[c.number].map { (c, $0) } }
+    }
+
+    static func chapters(_ query: String, in book: [(chapter: EpubChapter, text: String)]) -> [FindHit] {
         var hits: [FindHit] = []
-        for chapter in list {
-            guard let text = texts[chapter.number] else { continue }
+        for (chapter, text) in book {
             let name = chapter.title.isEmpty ? "Chapter \(chapter.number)" : chapter.title
             let found = lines(query, in: text, place: { _ in name }, startingAt: hits.count)
             hits += found.map { FindHit(id: $0.id, place: $0.place, snippet: $0.snippet, target: chapter.number) }

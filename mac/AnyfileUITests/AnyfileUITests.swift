@@ -177,6 +177,26 @@ final class AnyfileUITests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+    func testSearchEveryFileFindsAndOpens() {
+        let app = launch(Data("first line\nthe whale surfaces\n".utf8), as: "sea.txt")
+        XCTAssertTrue(element(app, "textEditor").waitForExistence(timeout: 10))
+        app.typeKey("w", modifierFlags: .command)
+        app.typeKey("l", modifierFlags: [.command, .shift])
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        field.click()
+        field.typeText("WHALE")
+        let hit = element(app, "searchHit.sea.txt.0")
+        XCTAssertTrue(hit.waitForExistence(timeout: 10))
+        XCTAssertTrue(text(of: element(app, "searchSummary")).contains("in 1 file"))
+        hit.click()
+        let editor = element(app, "textEditor")
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        app.typeText("X")
+        expectation(for: NSPredicate(format: "value CONTAINS %@", "the X surfaces"), evaluatedWith: editor)
+        waitForExpectations(timeout: 5)
+    }
+
     func testContentsDisabledForPlainText() {
         let app = launch(Data("alpha\n".utf8), as: "notes.txt")
         XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))
