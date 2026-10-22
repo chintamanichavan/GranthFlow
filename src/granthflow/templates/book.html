@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }}{% endblock %}
+{% block main %}
+<section class="book-detail">
+  <div class="book-head">
+    {% if book.cover_path %}
+      <img class="cover-lg" src="/book/{{ book.id }}/cover" alt="">
+    {% else %}
+      <div class="cover-placeholder lg">{{ book.title[:1] }}</div>
+    {% endif %}
+    <div class="book-info">
+      <h1>{{ book.title }}</h1>
+      {% if book.author %}<p class="author">{{ book.author }}</p>{% endif %}
+      <p class="actions">
+        <a class="btn primary" href="/book/{{ book.id }}/read">read</a>
+        <a class="btn" href="/book/{{ book.id }}/export.md">export .md</a>
+        <a class="btn" href="/book/{{ book.id }}/export.json">export .json</a>
+      </p>
+      <form action="/book/{{ book.id }}/delete" method="post"
+            onsubmit="return confirm('Delete this book and all its highlights?')">
+        <button type="submit" class="btn danger">delete</button>
+      </form>
+    </div>
+  </div>
+
+  <h2>highlights ({{ highlights|length }})</h2>
+  {% if highlights %}
+  <ul class="highlights">
+    {% for h in highlights %}
+      <li class="highlight color-{{ h.color }}">
+        <blockquote>{{ h.text }}</blockquote>
+        {% if h.note %}<p class="note">{{ h.note }}</p>{% endif %}
+        {% if h.tags %}
+        <p class="tags">
+          {% for t in h.tags %}<span class="tag">#{{ t }}</span>{% endfor %}
+        </p>
+        {% endif %}
+        <p class="hl-meta">{{ h.created_at }}</p>
+      </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="empty">no highlights yet — open the reader and select some text.</p>
+  {% endif %}
+</section>
+{% endblock %}

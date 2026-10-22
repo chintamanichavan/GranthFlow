@@ -1,7 +1,25 @@
+# Anyfile: C++ engine and Mac app
 build/
 *.blend1
 design/*.png
-__pycache__/
 mac/build/
 xcuserdata/
 *.xcuserstate
+
+# granthflow: Python web reader
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+
+# user data lives outside the repo when deployed; keep dir but ignore content
+data/files/*
+data/covers/*
+data/*.db
+data/*.db-journal
+!data/files/.gitkeep
+!data/covers/.gitkeep

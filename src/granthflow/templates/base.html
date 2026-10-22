@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}books{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">books</a>
+    <nav>
+      {% if autoimport_enabled %}
+      <form action="/scan" method="post" class="scan-form">
+        <button type="submit" class="btn">scan library</button>
+      </form>
+      {% endif %}
+      <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form">
+        <label class="btn">
+          <input type="file" name="file" accept=".epub" onchange="this.form.submit()" hidden>
+          + add epub
+        </label>
+      </form>
+    </nav>
+  </header>
+  <main>
+    {% block main %}{% endblock %}
+  </main>
+</body>
+</html>

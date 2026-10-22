@@ -33,6 +33,21 @@
 		CCCCCCCCCCCCCCCCCCCCCC09 /* Exceptions for "core" folder in "Anyfile" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				granthflow/__init__.py,
+				granthflow/app.py,
+				granthflow/db.py,
+				granthflow/epub_meta.py,
+				granthflow/models.py,
+				granthflow/static/reader.css,
+				granthflow/static/reader.js,
+				granthflow/static/style.css,
+				granthflow/static/vendor/epub.min.js,
+				granthflow/static/vendor/html2canvas.min.js,
+				granthflow/static/vendor/jszip.min.js,
+				granthflow/templates/base.html,
+				granthflow/templates/book.html,
+				granthflow/templates/library.html,
+				granthflow/templates/reader.html,
 				main.cpp,
 			);
 			target = DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */;
