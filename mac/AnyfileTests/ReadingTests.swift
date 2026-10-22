@@ -27,6 +27,19 @@ final class ReadingTests: XCTestCase {
         XCTAssertGreaterThan(resolved(Theme.paper.label, .darkAqua).brightnessComponent, 0.8)
     }
 
+    func testHeroGroundKeepsWhiteTextReadable() {
+        XCTAssertEqual(Theme.contrastWithWhite(.white), 1, accuracy: 0.01)
+        XCTAssertEqual(Theme.contrastWithWhite(.black), 21, accuracy: 0.01)
+        for hex in ["#F7C6EE", "#C487B3", "#FFFFFF", "#F2C14E", "#1B2F63", "#6E1E24"] {      // pale pink cover … dark cloth
+            let ground = Theme.groundForWhiteText(NSColor(hex: hex)!)
+            XCTAssertGreaterThanOrEqual(Theme.contrastWithWhite(ground), 4.5, hex)
+        }
+        let navy = Theme.groundForWhiteText(NSColor(hex: "#1B2F63")!).usingColorSpace(.sRGB)!
+        XCTAssertGreaterThan(navy.blueComponent, 0.25)                         // a dark cloth is not driven to black
+        let pink = Theme.groundForWhiteText(NSColor(hex: "#C487B3")!).usingColorSpace(.sRGB)!
+        XCTAssertGreaterThan(pink.redComponent, pink.greenComponent)            // still pink, only darker
+    }
+
     func testReadingFontIsTheSystemSerif() {
         let f = Theme.readingFont(size: 17)
         XCTAssertEqual(f.pointSize, 17)

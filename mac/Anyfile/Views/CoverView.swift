@@ -23,6 +23,8 @@ struct CoverView: View {
         case let .book(title, author, cloth):
             BookCover(title: title, author: author, cloth: Color(nsColor: NSColor(hex: Cover.cloths[cloth])!),
                       ink: Color(nsColor: NSColor(hex: Cover.ink)!))
+        case let .picture(image, _, _):
+            PictureCover(image: image)
         case let .page(thumbnail):
             PageCover(thumbnail: thumbnail)
         case let .note(heading, rows):
@@ -85,6 +87,20 @@ private struct Diamond: Shape {
             p.addLine(to: CGPoint(x: r.minX, y: r.midY))
             p.closeSubpath()
         }
+    }
+}
+
+/// A book's own cover picture, filling the card, with the spine's shade down the left edge.
+private struct PictureCover: View {
+    let image: NSImage
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Image(nsImage: image).resizable().interpolation(.high).scaledToFill()
+                .frame(width: CoverView.base.width, height: CoverView.base.height)
+            LinearGradient(colors: [.black.opacity(0.22), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 7)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 }
 

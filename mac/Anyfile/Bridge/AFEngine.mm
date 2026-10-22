@@ -20,16 +20,17 @@
 @end
 
 @implementation AFResult {
-    int _status; NSString *_output, *_errorText; NSData *_data;
+    int _status; NSString *_output, *_errorText; NSData *_data, *_outputData;
 }
-- (instancetype)initWithStatus:(int)status output:(NSString *)output error:(NSString *)error data:(NSData *)data {
-    if ((self = [super init])) { _status = status; _output = output; _errorText = error; _data = data; }
+- (instancetype)initWithStatus:(int)status output:(NSString *)output error:(NSString *)error data:(NSData *)data outputData:(NSData *)outputData {
+    if ((self = [super init])) { _status = status; _output = output; _errorText = error; _data = data; _outputData = outputData; }
     return self;
 }
 - (int)status { return _status; }
 - (NSString *)output { return _output; }
 - (NSString *)errorText { return _errorText; }
 - (NSData *)data { return _data; }
+- (NSData *)outputData { return _outputData; }
 @end
 
 static NSString *str(const std::string &s) {
@@ -83,14 +84,16 @@ struct TempCopy {
     }
     std::string detected;
     auto h = anyfile::makeHandler(tmp.path, kind.length ? kind.UTF8String : "", detected);
-    if (!h) return [[AFResult alloc] initWithStatus:2 output:@"" error:@"unknown file kind" data:nil];
+    if (!h) return [[AFResult alloc] initWithStatus:2 output:@"" error:@"unknown file kind" data:nil outputData:[NSData data]];
     std::ostringstream out, err;
     anyfile::Status st = h->run(command.UTF8String, argv, out, err);
     if (st == anyfile::Status::Unknown) err << "\"" << command.UTF8String << "\" is not a command for " << detected << " files";
 
     NSData *after = [NSData dataWithContentsOfFile:@(tmp.path.c_str())];
     NSData *changed = (after && ![after isEqualToData:data]) ? after : nil;
-    return [[AFResult alloc] initWithStatus:static_cast<int>(st) output:str(out.str()) error:str(err.str()) data:changed];
+    std::string printed = out.str();
+    return [[AFResult alloc] initWithStatus:static_cast<int>(st) output:str(printed) error:str(err.str()) data:changed
+                                 outputData:[NSData dataWithBytes:printed.data() length:printed.size()]];
 }
 
 @end

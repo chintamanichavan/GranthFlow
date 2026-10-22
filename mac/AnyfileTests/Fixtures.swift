@@ -36,13 +36,34 @@ enum Fixtures {
         ("OPS/nav.xhtml", "<html><body><nav><ol><li><a href=\"a.xhtml\">Opening</a></li></ol></nav></body></html>"),
     ])
 
-    /// An uncompressed zip written by hand, so the engine's reader is tested against bytes it did not produce.
+    /// A one-chapter book with a cover picture: a solid red (200, 40, 40) 2 x 3 PNG marked as EPUB 3's cover-image.
+    static var coveredEpub: Data {
+        let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAEElEQVR4nGM4oaEBRAwoFABIvQaRikDLogAAAABJRU5ErkJggg==")!
+        return zipBinary([
+            ("mimetype", Data("application/epub+zip".utf8)),
+            ("META-INF/container.xml", Data("<container><rootfiles><rootfile full-path=\"OPS/book.opf\"/></rootfiles></container>".utf8)),
+            ("OPS/book.opf", Data("""
+                <package version="3.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+                <metadata><dc:title>Covered Book</dc:title><dc:creator>Tester</dc:creator></metadata>
+                <manifest><item id="a" href="a.xhtml"/><item id="pic" href="art/front.png" media-type="image/png" properties="cover-image"/></manifest>
+                <spine><itemref idref="a"/></spine></package>
+                """.utf8)),
+            ("OPS/a.xhtml", Data("<html><body><h1>First</h1><p>Hello.</p></body></html>".utf8)),
+            ("OPS/art/front.png", png),
+        ])
+    }
+
     static func zip(_ files: [(name: String, content: String)]) -> Data {
+        zipBinary(files.map { ($0.name, Data($0.content.utf8)) })
+    }
+
+    /// An uncompressed zip written by hand, so the engine's reader is tested against bytes it did not produce.
+    static func zipBinary(_ files: [(name: String, content: Data)]) -> Data {
         func le16(_ v: Int) -> [UInt8] { [UInt8(v & 0xFF), UInt8((v >> 8) & 0xFF)] }
         func le32(_ v: Int) -> [UInt8] { le16(v & 0xFFFF) + le16((v >> 16) & 0xFFFF) }
         var body: [UInt8] = [], directory: [UInt8] = []
         for file in files {
-            let name = Array(file.name.utf8), content = Array(file.content.utf8)
+            let name = Array(file.name.utf8), content = Array(file.content)
             // version, flags, method 0 (stored), time, date 1980-01-01, crc, sizes, name length, extra length
             let fields = le16(10) + le16(0) + le16(0) + le16(0) + le16(0x21) + le32(Int(crc32(content)))
                 + le32(content.count) + le32(content.count) + le16(name.count) + le16(0)

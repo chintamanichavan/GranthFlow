@@ -28,6 +28,15 @@ final class ShelfTests: XCTestCase {
         XCTAssertNotNil(face?.cloth)
     }
 
+    func testACoveredBookTakesItsTitleAndAHeroColourFromThePicture() {
+        let url = write(Fixtures.coveredEpub, "covered.epub")
+        let face = Shelf.face(for: LibraryEntry(path: url.path, kind: "epub", opened: Date()))
+        XCTAssertEqual(face?.title, "Covered Book")
+        XCTAssertEqual(face?.subtitle, "Book · Tester")
+        XCTAssertNotNil(face?.cloth)
+        if case .picture = face?.art {} else { XCTFail("not the picture") }
+    }
+
     func testOtherFacesUseNameKindAndSize() {
         let url = write(Data([0x7f, 0x45, 0x4c, 0x46, 0, 0, 0, 0]), "firmware")
         let face = Shelf.face(for: LibraryEntry(path: url.path, kind: "binary", opened: Date()))
@@ -100,6 +109,26 @@ final class ShelfTests: XCTestCase {
         if let out = ProcessInfo.processInfo.environment["ANYFILE_SNAPSHOT_DIR"], let tiff = image.tiffRepresentation,
            let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
             try png.write(to: URL(fileURLWithPath: out).appendingPathComponent("marks.png"))
+        }
+    }
+
+    /// The library with the real book that showed the missing cover, when it is on this Mac.
+    func testLibraryWithARealBookDraws() async throws {
+        let path = NSString(string: "~/Downloads/h3fwq1oo9sxt9eyh4q3u5wlx-0017-anna-karenina-leo-tolstoy.epub").expandingTildeInPath
+        guard FileManager.default.fileExists(atPath: path) else { throw XCTSkip("Anna Karenina is not in Downloads") }
+        let lib = Library(file: dir.appendingPathComponent("l.json"))
+        let book = URL(fileURLWithPath: path)
+        lib.recordOpened(book, kind: "epub")
+        lib.recordPosition(book, position: 5, total: 252)
+        lib.recordOpened(write(Data(Fixtures.tinyPdf.utf8), "Report.pdf"), kind: "pdf", at: Date(timeIntervalSince1970: 1))
+        let host = NSHostingView(rootView: LibraryView(library: lib).frame(width: 1100, height: 760))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+        window.contentView = host
+        for _ in 0..<40 { try await Task.sleep(for: .milliseconds(50)); host.layoutSubtreeIfNeeded() }
+        let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: rep)
+        if let out = ProcessInfo.processInfo.environment["ANYFILE_SNAPSHOT_DIR"], let png = rep.representation(using: .png, properties: [:]) {
+            try png.write(to: URL(fileURLWithPath: out).appendingPathComponent("library-real-book.png"))
         }
     }
 }

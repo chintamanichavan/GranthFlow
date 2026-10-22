@@ -14,6 +14,8 @@ struct RunResult {
     let output: String
     let errorText: String
     let changedData: Data?
+    /// The output as bytes, for commands such as `cat` whose output is not text.
+    var outputData = Data()
     var succeeded: Bool { status == .ok }
 }
 
@@ -29,7 +31,7 @@ enum Engine {
     static func run(_ command: String, args: [String], on data: Data, name: String, kind: String) -> RunResult {
         let r = AFEngine.run(command, args: args, data: data, name: name, kind: kind)
         return RunResult(status: RunResult.Status(rawValue: Int(r.status)) ?? .error,
-                         output: r.output, errorText: r.errorText, changedData: r.data)
+                         output: r.output, errorText: r.errorText, changedData: r.data, outputData: r.outputData)
     }
 
     /// Splits a command line the way a shell would for simple cases: spaces separate arguments,

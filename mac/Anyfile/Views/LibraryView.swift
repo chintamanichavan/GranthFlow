@@ -164,10 +164,9 @@ private struct Hero: View {
         .accessibilityIdentifier("hero")
     }
 
-    /// A book's cloth, darkened a little so white text sits well on it; deep blue for documents.
+    /// The cover's colour, darkened until white text reads on it; deep blue for documents.
     private var ground: NSColor {
-        let base = face?.cloth.flatMap(NSColor.init(hex:)) ?? NSColor(hex: "#16264F")!
-        return base.blended(withFraction: 0.18, of: .black) ?? base
+        Theme.groundForWhiteText(face?.cloth.flatMap(NSColor.init(hex:)) ?? NSColor(hex: "#16264F")!)
     }
 }
 

@@ -10,6 +10,42 @@ final class CoverTests: XCTestCase {
         XCTAssertEqual(cloth, Int(Cover.stableHash("Tiny Book") % UInt64(Cover.cloths.count)))
     }
 
+    func testABookWithItsOwnCoverShowsThatPicture() {
+        guard case let .picture(image, title, author) = Cover.art(for: Fixtures.coveredEpub, name: "c.epub", kind: "epub") else {
+            return XCTFail("the book's own cover was not used")
+        }
+        XCTAssertEqual(title, "Covered Book")
+        XCTAssertEqual(author, "Tester")
+        XCTAssertEqual(image.size, NSSize(width: 2, height: 3))          // small pictures are not blown up
+    }
+
+    func testTheEngineReturnsTheCoverBytesUnchanged() {
+        let r = Engine.run("cat", args: ["OPS/art/front.png"], on: Fixtures.coveredEpub, name: "c.epub", kind: "epub")
+        XCTAssertEqual(r.outputData.prefix(8), Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))   // PNG signature intact
+        XCTAssertEqual(Engine.run("cover", args: [], on: Fixtures.coveredEpub, name: "c.epub", kind: "epub").output, "OPS/art/front.png\n")
+    }
+
+    func testAverageColourOfACover() {
+        guard case let .picture(image, _, _) = Cover.art(for: Fixtures.coveredEpub, name: "c.epub", kind: "epub") else { return XCTFail() }
+        let hex = Cover.averageHex(image)
+        let c = NSColor(hex: hex ?? "")?.usingColorSpace(.sRGB)
+        XCTAssertEqual((c?.redComponent ?? 0) * 255, 200, accuracy: 6, hex ?? "nil")
+        XCTAssertEqual((c?.greenComponent ?? 0) * 255, 40, accuracy: 6, hex ?? "nil")
+    }
+
+    /// The book that showed the bug, when it is on this Mac. Large covers are read at shelf size.
+    func testRealBookUsesItsCoverArt() throws {
+        let path = NSString(string: "~/Downloads/h3fwq1oo9sxt9eyh4q3u5wlx-0017-anna-karenina-leo-tolstoy.epub").expandingTildeInPath
+        guard let data = FileManager.default.contents(atPath: path) else { throw XCTSkip("Anna Karenina is not in Downloads") }
+        let start = Date()
+        let art = Cover.art(for: data, name: "anna-karenina.epub", kind: "epub")
+        print(String(format: "cover of a %.1f MB book with a 2.4 MB JPEG: %.3f s", Double(data.count) / 1e6, Date().timeIntervalSince(start)))
+        guard case let .picture(image, title, author) = art else { return XCTFail("cover art not used") }
+        XCTAssertEqual(title, "Anna Karenina")
+        XCTAssertEqual(author, "Leo Tolstoy")
+        XCTAssertEqual(max(image.size.width, image.size.height), CGFloat(Cover.pictureHeight))
+    }
+
     func testStableHashIsFnv1a() {
         XCTAssertEqual(Cover.stableHash(""), 0xcbf2_9ce4_8422_2325)
         XCTAssertEqual(Cover.stableHash("a"), 0xaf63_dc4c_8601_ec8c)      // published FNV-1a test vector

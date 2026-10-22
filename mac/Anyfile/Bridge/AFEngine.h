@@ -14,6 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) NSString *output;
 @property (nonatomic, readonly) NSString *errorText;
 @property (nonatomic, readonly, nullable) NSData *data;  // the file's new contents when the command changed it
+@property (nonatomic, readonly) NSData *outputData;       // the output as raw bytes, for commands like `cat` that print binary
 @end
 
 @interface AFEngine : NSObject

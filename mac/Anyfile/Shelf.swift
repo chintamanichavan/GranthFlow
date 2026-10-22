@@ -64,10 +64,17 @@ enum Shelf {
         let art = Cover.art(for: data, name: entry.name, kind: entry.kind)
         let label = KindLabel.label(kind: entry.kind, data: data)
         var title = entry.name, author = "", cloth: String?
-        if case let .book(lines, by, clothIndex) = art {
+        switch art {
+        case let .book(lines, by, clothIndex):
             title = lines.joined(separator: " ")
             author = by
             cloth = Cover.cloths[clothIndex]
+        case let .picture(image, bookTitle, by):
+            title = bookTitle
+            author = by
+            cloth = Cover.averageHex(image)
+        default:
+            break
         }
         let detail = entry.progressText ?? (author.isEmpty ? ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file) : author)
         return ShelfFace(art: art, title: title, subtitle: "\(label) · \(detail)", author: author, cloth: cloth)

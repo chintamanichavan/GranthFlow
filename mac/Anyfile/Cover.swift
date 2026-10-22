@@ -1,10 +1,14 @@
-// Every file has a face. A cover is made from the file's own contents: a book's title and
-// author on cloth, a PDF's first page, a note's first lines, or, for a program, a map of its bytes.
+// Every file has a face. A cover is made from the file's own contents: a book's own cover
+// picture (or its title and author on cloth when it has none), a PDF's first page, a note's
+// first lines, or, for a program, a map of its bytes.
 import Foundation
+import ImageIO
 import PDFKit
 
 enum CoverArt {
     case book(title: [String], author: String, cloth: Int)     // cloth: index into Cover.cloths
+    /// A book that comes with its own cover. The title and author are kept for the caption.
+    case picture(NSImage, title: String, author: String)
     case page(thumbnail: NSImage?)
     case note(heading: String, rows: [String])
     case text(rows: [String])
@@ -22,7 +26,9 @@ enum Cover {
         case "epub":
             let meta = Engine.run("meta", args: [], on: data, name: name, kind: kind).output
             let title = field("title", in: meta) ?? stem(name)
-            return .book(title: titleLines(title), author: field("creator", in: meta) ?? "", cloth: Int(stableHash(title) % UInt64(cloths.count)))
+            let author = field("creator", in: meta) ?? ""
+            if let picture = bookCover(data, name: name) { return .picture(picture, title: title, author: author) }
+            return .book(title: titleLines(title), author: author, cloth: Int(stableHash(title) % UInt64(cloths.count)))
         case "pdf":
             return .page(thumbnail: PDFDocument(data: data)?.page(at: 0).map(pageImage))
         case "markdown":
@@ -37,6 +43,35 @@ enum Cover {
         default:
             return .bytes(cells: byteMap(data), cols: mapCols, rows: mapRows)
         }
+    }
+
+    /// Covers are drawn at most this tall: a shelf cover is about 210 points, twice that on Retina.
+    static let pictureHeight = 600
+
+    /// The book's own cover image, read at shelf size. A 2.4 MB JPEG is decoded straight to a
+    /// 600-pixel image instead of being held at full size for every book on the shelf.
+    static func bookCover(_ data: Data, name: String) -> NSImage? {
+        let path = Engine.run("cover", args: [], on: data, name: name, kind: "epub")
+        guard path.succeeded, !path.output.isEmpty else { return nil }
+        let bytes = Engine.run("cat", args: [path.output.trimmingCharacters(in: .newlines)], on: data, name: name, kind: "epub")
+        guard bytes.succeeded, let source = CGImageSourceCreateWithData(bytes.outputData as CFData, nil) else { return nil }
+        let options = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                       kCGImageSourceThumbnailMaxPixelSize: pictureHeight] as CFDictionary
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
+        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+    }
+
+    /// The picture's average colour as "#RRGGBB", so the hero behind a cover can take its colour.
+    static func averageHex(_ image: NSImage) -> String? {
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8, samplesPerPixel: 4,
+                                         hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSGraphicsContext.current?.imageInterpolation = .high
+        image.draw(in: NSRect(x: 0, y: 0, width: 1, height: 1))       // the scaler averages every pixel into one
+        NSGraphicsContext.restoreGraphicsState()
+        guard let c = rep.colorAt(x: 0, y: 0)?.usingColorSpace(.sRGB) else { return nil }
+        return String(format: "#%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
     }
 
     /// The page at the cover's width, from the top, on white: a landscape page shows its upper part
