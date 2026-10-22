@@ -52,8 +52,25 @@ enum ReadingStyle {
     }
 }
 
-/// A text view that keeps its column centred and no wider than the reading measure.
+/// A text view that keeps its column centred and no wider than the reading measure, and turns
+/// pages from the keyboard: the arrow keys, or Space, which scrolls and turns once the end is in view.
 final class PaperTextView: NSTextView {
+    var onTurn: ((Int) -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        let plain = event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+        switch (event.keyCode, plain) {
+        case (124, true): onTurn?(1)                                       // →
+        case (123, true): onTurn?(-1)                                      // ←
+        case (49, true) where Self.atEnd(visibleRect, bounds): onTurn?(1)  // Space at the end of the chapter
+        case (49, true): scrollPageDown(nil)                               // Space elsewhere: down a screen, as in Books
+        default: super.keyDown(with: event)
+        }
+    }
+
+    /// True when the bottom of the text is in view.
+    static func atEnd(_ visible: NSRect, _ bounds: NSRect) -> Bool { visible.maxY >= bounds.maxY - 2 }
+
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         let inset = ReadingStyle.sideInset(forWidth: newSize.width)

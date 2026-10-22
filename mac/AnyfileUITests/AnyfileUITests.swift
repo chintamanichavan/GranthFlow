@@ -249,6 +249,19 @@ final class AnyfileUITests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+    func testArrowKeysTurnChapters() {
+        let app = launch(tinyEpub(), as: "turn.epub")
+        let reading = element(app, "epubText")
+        XCTAssertTrue(reading.waitForExistence(timeout: 10))
+        reading.click()
+        reading.typeKey(.rightArrow, modifierFlags: [])
+        expectation(for: NSPredicate(format: "value CONTAINS %@", "Closing words."), evaluatedWith: reading)
+        waitForExpectations(timeout: 5)
+        reading.typeKey(.leftArrow, modifierFlags: [])
+        expectation(for: NSPredicate(format: "value CONTAINS %@", "Hello book & reader."), evaluatedWith: reading)
+        waitForExpectations(timeout: 5)
+    }
+
     func testEpubReplaceUpdatesReadingText() {
         let app = launch(tinyEpub(), as: "book.epub")
         let reading = element(app, "epubText")

@@ -32,14 +32,31 @@ struct EpubPane: View {
     @State private var titles: [Int: String] = [:]
 
     var body: some View {
-        ReadingText(text: text, number: loaded, title: title, find: find?.target == loaded ? find : nil, marks: marks) { quote in
-            guard let quote, let loaded else { return onSelect(nil) }
-            onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
-        }
+        ReadingText(text: text, number: loaded, title: title, find: find?.target == loaded ? find : nil, marks: marks,
+                    onSelect: { quote in
+                        guard let quote, let loaded else { return onSelect(nil) }
+                        onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
+                    },
+                    onTurn: turn(by:))
             .frame(minWidth: 320)
+            .overlay(alignment: .leading) { TurnArrow(direction: -1, enabled: neighbour(-1) != nil) { turn(by: -1) } }
+            .overlay(alignment: .trailing) { TurnArrow(direction: 1, enabled: neighbour(1) != nil) { turn(by: 1) } }
             .onAppear { reload() }
             .onChange(of: document.data) { reload() }      // a command changed the book
             .onChange(of: chapter) { loadText() }
+    }
+
+    /// The chapter before or after the one on show, if there is one.
+    private func neighbour(_ step: Int) -> Int? { EpubPane.neighbour(of: chapter, step: step, in: Array(titles.keys)) }
+
+    static func neighbour(of chapter: Int?, step: Int, in numbers: [Int]) -> Int? {
+        let sorted = numbers.sorted()
+        guard let chapter, let i = sorted.firstIndex(of: chapter), sorted.indices.contains(i + step) else { return nil }
+        return sorted[i + step]
+    }
+
+    private func turn(by step: Int) {
+        if let next = neighbour(step) { chapter = next }
     }
 
     private func reload() {
@@ -68,8 +85,10 @@ struct ReadingText: NSViewRepresentable {
     var find: Jump? = nil
     var marks: [String] = []
     var onSelect: (String?) -> Void = { _ in }
+    /// Asks for the next (+1) or previous (-1) chapter, from the arrow keys or Space at the end.
+    var onTurn: (Int) -> Void = { _ in }
 
-    func makeNSView(context: Context) -> NSScrollView {
+    func makeNSView(context: Context) -> PageTurnView {
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -89,17 +108,23 @@ struct ReadingText: NSViewRepresentable {
         tv.setAccessibilityIdentifier("epubText")
         tv.delegate = context.coordinator
         scroll.documentView = tv
-        return scroll
+        return PageTurnView(scroll: scroll)
     }
 
-    func updateNSView(_ scroll: NSScrollView, context: Context) {
-        let tv = scroll.documentView as! NSTextView
+    func updateNSView(_ turner: PageTurnView, context: Context) {
+        let tv = turner.scroll.documentView as! PaperTextView
+        tv.onTurn = onTurn
         let shown = [String(number ?? 0), title, text]
         if context.coordinator.shown != shown {
+            // A new chapter number is a page turn: picture the old page before the text changes.
+            let previous = Int(context.coordinator.shown.first ?? "")
+            let turning = previous != nil && previous != 0 && number != nil && previous != number && turner.window != nil
+            let old = turning ? turner.snapshot() : nil
             context.coordinator.shown = shown
             tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title))
             tv.scrollToBeginningOfDocument(nil)
             context.coordinator.lastMarks = nil
+            if let old, let previous, let number { turner.turn(from: old, forward: number > previous) }
         }
         context.coordinator.onSelect = onSelect
         if marks != context.coordinator.lastMarks {
@@ -131,5 +156,32 @@ struct ReadingText: NSViewRepresentable {
             let r = tv.selectedRange()
             onSelect(r.length > 0 ? (tv.string as NSString).substring(with: r) : nil)
         }
+    }
+}
+
+/// A quiet arrow at the page's edge that shows when the pointer comes near.
+private struct TurnArrow: View {
+    let direction: Int
+    let enabled: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: direction < 0 ? "chevron.left" : "chevron.right")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(Color(nsColor: Theme.paper.secondary))
+                .frame(width: 44)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .opacity(enabled && hovering ? 1 : 0)
+        .animation(.easeOut(duration: 0.18), value: hovering)
+        .onHover { hovering = $0 }
+        .disabled(!enabled)
+        .help(direction < 0 ? "Previous chapter (←)" : "Next chapter (→)")
+        .accessibilityLabel(direction < 0 ? "Previous chapter" : "Next chapter")
+        .accessibilityIdentifier(direction < 0 ? "previousChapter" : "nextChapter")
     }
 }
