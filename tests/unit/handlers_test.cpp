@@ -211,6 +211,22 @@ TEST(pdf_unreadable_file_reports_error) {
 
 // ---------------------------------------------------------------- epub
 
+TEST(epub_cover_names_the_image_and_cat_returns_its_bytes) {
+    zip::Archive a = epubArchive();
+    std::string opf, e;
+    a.read("OEBPS/content.opf", opf, e);
+    opf.replace(opf.find("  </manifest>"), 0, "    <item id=\"c\" href=\"cover.jpg\" media-type=\"image/jpeg\" properties=\"cover-image\"/>\n");
+    a.put("OEBPS/content.opf", opf);
+    std::string jpeg("\xFF\xD8\xFF\xE0\0\x10JFIF\0", 11);                     // binary, with NUL bytes
+    a.put("OEBPS/cover.jpg", jpeg);
+    std::string p = dir().file("covered.epub", a.serialize());
+    CHECK_EQ(run(p, "cover").out, "OEBPS/cover.jpg\n");
+    CHECK(run(p, "cat", {"OEBPS/cover.jpg"}).out == jpeg);                      // stored bytes, untouched
+    Run none = run(dir().file("plain.epub", epubBytes()), "cover");
+    CHECK(none.status == Status::Error);
+    CHECK_CONTAINS(none.err, "no cover image");
+}
+
 TEST(epub_read_commands) {
     std::string p = dir().file("r.epub", epubBytes());
     Run i = run(p, "info");

@@ -33,6 +33,8 @@ public:
     const std::vector<std::pair<std::string, std::string>>& metadata() const { return metadata_; }   // ("title", "..."), in file order
     std::string meta(const std::string& key) const;                                                  // first value, or ""
     const zip::Archive& archive() const { return zip_; }
+    // The cover image's name inside the archive, or "" when the book has none.
+    const std::string& coverPath() const { return coverPath_; }
 
     // `title` receives what chapterTitle() would return, without reading the chapter a second time.
     bool chapterText(size_t index, std::string& out, std::string& error, std::string* title = nullptr) const;
@@ -53,7 +55,7 @@ private:
     std::string fileName(size_t index) const;
 
     zip::Archive zip_;
-    std::string opfPath_, opf_, version_;
+    std::string opfPath_, opf_, version_, coverPath_;
     std::vector<Chapter> chapters_;
     std::vector<std::pair<std::string, std::string>> metadata_;
 };

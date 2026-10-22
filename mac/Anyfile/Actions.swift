@@ -52,7 +52,7 @@ enum CommandRole {
         "show", "lines", "grep", "count",
         "render", "outline", "section", "links", "toc",
         "text", "pages", "meta", "object",
-        "chapters", "files", "cat",
+        "chapters", "files", "cat", "cover",
     ]
 
     /// Commands behind Edit: the ones that change the file, in the engine's order.

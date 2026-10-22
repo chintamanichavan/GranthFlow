@@ -14,6 +14,7 @@ std::vector<Command> EpubHandler::commands() const {
         {"meta", "", "Show book metadata (title, creator, language, ...)"},
         {"files", "", "List every file in the archive with its size"},
         {"cat", "<file>", "Print one file from the archive as stored, e.g. a chapter's XHTML"},
+        {"cover", "", "Print the name of the cover image inside the archive (use cat to get its bytes)"},
         {"set-meta", "<key> <value> [--out file]", "Set a metadata entry, e.g. set-meta title \"My book\""},
         {"replace", "<old> <new> [--chapter n] [--all] [--out file]", "Replace literal text in chapter text (not across tags)"},
     };
@@ -50,7 +51,7 @@ void EpubHandler::describe(std::ostream& out) {
 }
 
 Status EpubHandler::run(const std::string& cmd, const std::vector<std::string>& argsIn, std::ostream& out, std::ostream& err) {
-    static const std::vector<std::string> mine = {"text", "chapters", "meta", "files", "cat", "set-meta", "replace"};
+    static const std::vector<std::string> mine = {"text", "chapters", "meta", "files", "cat", "cover", "set-meta", "replace"};
     if (std::find(mine.begin(), mine.end(), cmd) == mine.end()) return ByteHandler::run(cmd, argsIn, out, err);
     if (!open(err)) return Status::Error;
     epub::Book& book = *book_;
@@ -74,6 +75,11 @@ Status EpubHandler::run(const std::string& cmd, const std::vector<std::string>& 
     }
     if (cmd == "meta") {
         for (const auto& [key, value] : book.metadata()) out << key << ": " << value << "\n";
+        return Status::Ok;
+    }
+    if (cmd == "cover") {
+        if (book.coverPath().empty()) { err << "error: this book has no cover image\n"; return Status::Error; }
+        out << book.coverPath() << "\n";
         return Status::Ok;
     }
     if (cmd == "files") {

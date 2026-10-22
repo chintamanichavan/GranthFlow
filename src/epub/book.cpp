@@ -162,9 +162,10 @@ void Book::parsePackage() {
     struct Item { std::string href, type, properties; };
     std::map<std::string, Item> manifest;
     std::vector<std::string> spine;
-    std::string section, pendingKey, tocId;
+    std::string section, pendingKey, tocId, coverId;
     metadata_.clear();
     chapters_.clear();
+    coverPath_.clear();
 
     xml::Reader reader(opf_);
     xml::Token t;
@@ -184,12 +185,32 @@ void Book::parsePackage() {
             if (name == "spine") tocId = t.attr("toc");
         } else if (section == "metadata" && lower(t.name).rfind("dc:", 0) == 0 && !t.selfClosing) {
             pendingKey = name;
+        } else if (section == "metadata" && name == "meta" && t.attr("name") == "cover") {
+            coverId = t.attr("content");                // EPUB 2: <meta name="cover" content="item-id"/>
         } else if (section == "manifest" && name == "item") {
             manifest[t.attr("id")] = {t.attr("href"), t.attr("media-type"), t.attr("properties")};
         } else if (section == "spine" && name == "itemref") {
             spine.push_back(t.attr("idref"));
         }
     }
+
+    // The cover: EPUB 3 marks it with properties="cover-image", EPUB 2 names it in a <meta>, and
+    // many older books only call it "cover" in the item's id or file name.
+    auto isImage = [](const Item& item) { return item.type.rfind("image/", 0) == 0; };
+    std::string cover;
+    for (const auto& [id, item] : manifest) {
+        if ((" " + item.properties + " ").find(" cover-image ") != std::string::npos) cover = item.href;
+    }
+    if (cover.empty() && manifest.count(coverId) && isImage(manifest[coverId])) cover = manifest[coverId].href;
+    if (cover.empty()) {
+        for (const auto& [id, item] : manifest) {
+            if (isImage(item) && (lower(id).find("cover") != std::string::npos || lower(item.href).find("cover") != std::string::npos)) {
+                cover = item.href;
+                break;
+            }
+        }
+    }
+    if (!cover.empty() && zip_.has(resolvePath(opfPath_, cover))) coverPath_ = resolvePath(opfPath_, cover);
 
     // Chapter names come from the EPUB 3 navigation document when there is one, else the EPUB 2 NCX.
     std::map<std::string, std::string> labels;

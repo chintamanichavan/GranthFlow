@@ -223,3 +223,47 @@ TEST(edits_survive_serialize_and_other_entries_stay_identical) {
     CHECK_EQ(css, "p { margin: 0 }");
     CHECK_EQ(again.archive().entries()[0].name, "mimetype");
 }
+
+// The fixture book with `manifest` added to its manifest, `meta` to its metadata, and the named files stored.
+static std::string withCover(const std::string& manifest, const std::string& meta, const std::vector<std::string>& files) {
+    auto a = epubArchive();
+    std::string opf, e;
+    a.read("OEBPS/content.opf", opf, e);
+    opf.replace(opf.find("  </manifest>"), 0, "    " + manifest + "\n");
+    opf.replace(opf.find("  </metadata>"), 0, "    " + meta + "\n");
+    a.put("OEBPS/content.opf", opf);
+    for (const auto& f : files) a.put(f, std::string("\xFF\xD8\xFF\xE0", 4));
+    return a.serialize();
+}
+
+static std::string coverOf(const std::string& bytes) {
+    anyfile::epub::Book b;
+    std::string e;
+    CHECK(b.load(bytes, e));
+    return b.coverPath();
+}
+
+TEST(cover_none_when_the_book_has_none) {
+    CHECK_EQ(coverOf(epubBytes()), "");
+}
+
+TEST(cover_from_epub3_property) {
+    CHECK_EQ(coverOf(withCover("<item id=\"img\" href=\"images/front.jpg\" media-type=\"image/jpeg\" properties=\"cover-image\"/>", "",
+                               {"OEBPS/images/front.jpg"})), "OEBPS/images/front.jpg");
+}
+
+TEST(cover_from_epub2_meta) {
+    CHECK_EQ(coverOf(withCover("<item id=\"pic\" href=\"art.png\" media-type=\"image/png\"/>", "<meta name=\"cover\" content=\"pic\"/>",
+                               {"OEBPS/art.png"})), "OEBPS/art.png");
+}
+
+TEST(cover_from_name_when_unmarked_but_only_an_image) {
+    CHECK_EQ(coverOf(withCover("<item id=\"x\" href=\"img/Cover.jpeg\" media-type=\"image/jpeg\"/>", "", {"OEBPS/img/Cover.jpeg"})),
+             "OEBPS/img/Cover.jpeg");
+    // The cover page's XHTML is not an image, so it is not taken for the cover.
+    CHECK_EQ(coverOf(withCover("<item id=\"cover\" href=\"cover.xhtml\" media-type=\"application/xhtml+xml\"/>", "", {"OEBPS/cover.xhtml"})), "");
+}
+
+TEST(cover_listed_but_missing_from_the_archive) {
+    CHECK_EQ(coverOf(withCover("<item id=\"img\" href=\"gone.jpg\" media-type=\"image/jpeg\" properties=\"cover-image\"/>", "", {})), "");
+}
