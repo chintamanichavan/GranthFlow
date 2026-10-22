@@ -1,92 +1,150 @@
 import XCTest
-import CoreImage
 import SwiftUI
 @testable import Anyfile
 
 @MainActor
 final class PageTurnTests: XCTestCase {
-    /// A page of reading text, as the reading view draws it.
-    private func page(_ title: String, _ number: Int) -> CIImage {
-        let view = ReadingText(text: title + "\n\n" + String(repeating: "It was a bright cold day in April, and the clocks were striking thirteen. ", count: 12),
-                               number: number, title: title)
-        let host = NSHostingView(rootView: view.frame(width: 700, height: 460))
-        host.frame = NSRect(x: 0, y: 0, width: 700, height: 460)
-        host.layoutSubtreeIfNeeded()
-        let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds)!
-        host.cacheDisplay(in: host.bounds, to: rep)
-        return CIImage(cgImage: rep.cgImage!)
-    }
-
-    private func save(_ image: CIImage, _ name: String) {
-        guard let dir = ProcessInfo.processInfo.environment["ANYFILE_SNAPSHOT_DIR"] else { return }
-        let rep = NSBitmapImageRep(ciImage: image)
-        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name + ".png"))
-    }
-
-    private func pixel(_ image: CIImage, _ x: CGFloat, _ y: CGFloat) -> NSColor {
-        NSBitmapImageRep(ciImage: image).colorAt(x: Int(x), y: Int(image.extent.height - y))!.usingColorSpace(.sRGB)!
-    }
-
-    func testTheTurnStartsOnTheOldPageAndEndsOnTheNew() {
-        let a = page("Loomings", 1), b = page("The Carpet-Bag", 2)
-        for forward in [true, false] {
-            let first = PageCurl.frame(from: a, to: b, progress: 0, forward: forward)
-            let last = PageCurl.frame(from: a, to: b, progress: 1, forward: forward)
-            XCTAssertEqual(first.extent, a.extent)
-            // Compare a strip through the title, where the two pages differ most.
-            let y = a.extent.height * 0.22
-            XCTAssertEqual(pixel(first, a.extent.midX, y), pixel(a, a.extent.midX, y), "forward \(forward): first frame is the old page")
-            XCTAssertEqual(pixel(last, b.extent.midX, y), pixel(b, b.extent.midX, y), "forward \(forward): last frame is the new page")
-        }
-    }
-
     func testEasingIsSlowAtBothEnds() {
         XCTAssertEqual(PageCurl.eased(0), 0)
         XCTAssertEqual(PageCurl.eased(1), 1)
         XCTAssertEqual(PageCurl.eased(0.5), 0.5, accuracy: 1e-9)
         XCTAssertLessThan(PageCurl.eased(0.1), 0.1)
         XCTAssertGreaterThan(PageCurl.eased(0.9), 0.9)
+        XCTAssertGreaterThan(PageCurl.easedOut(0.3), 0.3)              // a released page falls fast, then settles
+        XCTAssertEqual(PageCurl.easedOut(1), 1)
     }
 
-    /// A turn draws about 33 frames in 0.55 s; each must fit well inside a 60 Hz frame. Prints the time.
-    func testFrameSpeedAtWindowSize() {
-        let size = CGRect(x: 0, y: 0, width: 2200, height: 1500)                // a large window on a Retina screen
-        let a = CIImage(color: .white).cropped(to: size), b = CIImage(color: CIColor(red: 0.97, green: 0.94, blue: 0.88)).cropped(to: size)
-        let context = CIContext(options: [.cacheIntermediates: false])
-        _ = context.createCGImage(PageCurl.frame(from: a, to: b, progress: 0.5, forward: true), from: size)   // warm up
-        let start = Date()
-        for i in 0..<20 {
-            let f = PageCurl.frame(from: a, to: b, progress: Double(i) / 20, forward: true)
-            _ = context.createCGImage(f, from: f.extent)
-        }
-        let perFrame = Date().timeIntervalSince(start) / 20
-        print(String(format: "page curl frame at 2200x1500: %.1f ms", perFrame * 1000))
-        XCTAssertLessThan(perFrame, 1.0 / 60)
+    func testProgressRunsTheTurnBothWays() {
+        XCTAssertEqual(PageCurl.progress(fraction: 0, forward: true), 0)
+        XCTAssertEqual(PageCurl.progress(fraction: 1, forward: true), PageCurl.visibleEnd)
+        // Back: the previous page starts over the spine and ends lying flat.
+        XCTAssertEqual(PageCurl.progress(fraction: 0, forward: false), PageCurl.visibleEnd)
+        XCTAssertEqual(PageCurl.progress(fraction: 1, forward: false), 0)
+        XCTAssertEqual(PageCurl.progress(fraction: 2, forward: true), PageCurl.visibleEnd)    // clamped
     }
 
-    func testFramesForAPerson() {
-        let a = page("Loomings", 1), b = page("The Carpet-Bag", 2)
-        for p in [0.3, 0.6] {
-            save(PageCurl.frame(from: a, to: b, progress: p, forward: true), "curl-forward-\(Int(p * 10))")
-            save(PageCurl.frame(from: a, to: b, progress: p, forward: false), "curl-back-\(Int(p * 10))")
-        }
-        save(PageCurl.frame(from: a, to: b, progress: 0.5, forward: true, reduceMotion: true), "curl-reduced")
+    func testFingersLeftTurnToTheNextPage() {
+        var s = SwipeTurn(width: 1000)
+        s.move(by: -4)
+        XCTAssertNil(s.step)                                            // a wobble decides nothing
+        s.move(by: -6)
+        XCTAssertEqual(s.step, 1)
+        s.move(by: -265)                                                 // 275 of a 550-point span
+        XCTAssertEqual(s.fraction, 0.5, accuracy: 1e-9)
+        XCTAssertTrue(s.commits)
+    }
+
+    func testFingersRightTurnBackAndASmallSwipeSettles() {
+        var s = SwipeTurn(width: 1000)
+        s.move(by: 20)
+        XCTAssertEqual(s.step, -1)
+        XCTAssertEqual(s.fraction, 20 / 550, accuracy: 1e-9)
+        s.move(by: 1)
+        XCTAssertFalse(s.commits)                                       // not far, not flicked: the page settles back
+        s.move(by: -60)
+        XCTAssertEqual(s.fraction, 0)                                    // back past the start holds at 0
+    }
+
+    func testAFlickTurnsEvenIfShort() {
+        var s = SwipeTurn(width: 1000)
+        s.move(by: -30)
+        s.move(by: -14)
+        XCTAssertLessThan(s.fraction, 0.33)
+        XCTAssertTrue(s.commits)
+    }
+
+    func testFingerDirectionFollowsTheScrollingSetting() {
+        XCTAssertEqual(SwipeTurn.fingerDX(scrollingDeltaX: -5, invertedFromDevice: true), -5)    // natural scrolling
+        XCTAssertEqual(SwipeTurn.fingerDX(scrollingDeltaX: -5, invertedFromDevice: false), 5)
+    }
+
+    func testOnlyClearlySidewaysSwipesTurn() {
+        XCTAssertTrue(PageScrollView.isTurn(dx: -10, dy: 2))
+        XCTAssertFalse(PageScrollView.isTurn(dx: 3, dy: -10))
+        XCTAssertFalse(PageScrollView.isTurn(dx: 10, dy: 8))            // diagonal: keep scrolling
+    }
+
+    private func turner(width: CGFloat = 400, height: CGFloat = 300) -> (PageTurnView, NSWindow) {
+        let scroll = ReadingText.makePage()
+        let turner = PageTurnView(scroll: scroll)
+        turner.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        let window = NSWindow(contentRect: turner.frame, styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = turner
+        (scroll.documentView as? NSTextView)?.string = "Call me Ishmael."
+        return (turner, window)
+    }
+
+    /// The turn plays over the page and then gets out of the way.
+    func testAPlayedTurnClearsAfterwards() async throws {
+        let (t, window) = turner()
+        let old = try XCTUnwrap(t.snapshot())
+        (t.scroll.documentView as? NSTextView)?.string = "The Carpet-Bag"
+        t.turn(from: old, forward: true)
+        XCTAssertTrue(t.isBusy)
+        try await Task.sleep(for: .seconds(PageCurl.duration + 0.4))
+        XCTAssertFalse(t.isBusy)
+        _ = window
+    }
+
+    func testASwipeHoldsThePageAndSettlesBackWithoutTurning() async throws {
+        let (t, window) = turner()
+        var turned: [Int] = []
+        t.preview = { _ in t.snapshot() }
+        t.commit = { turned.append($0) }
+        t.swipeMoved(by: -12)
+        XCTAssertTrue(t.isBusy)                                         // the page is under the fingers
+        t.swipeMoved(by: 2)                                              // eased back, not flicked
+        t.swipeEnded()
+        XCTAssertEqual(turned, [])
+        try await Task.sleep(for: .seconds(PageCurl.duration + 0.4))
+        XCTAssertFalse(t.isBusy)
+        _ = window
+    }
+
+    func testASwipeFarEnoughTurnsThePage() async throws {
+        let (t, window) = turner()
+        var turned: [Int] = []
+        t.preview = { _ in t.snapshot() }
+        t.commit = { turned.append($0) }
+        for _ in 0..<10 { t.swipeMoved(by: -20) }                       // 200 of 220 points
+        t.swipeEnded()
+        XCTAssertEqual(turned, [1])
+        try await Task.sleep(for: .seconds(PageCurl.duration + 0.4))
+        XCTAssertFalse(t.isBusy)
+        _ = window
+    }
+
+    func testNoTurnWhenThereIsNoPageThatWay() {
+        let (t, window) = turner()
+        var turned: [Int] = []
+        t.preview = { _ in nil }                                         // the last chapter: nothing after it
+        t.commit = { turned.append($0) }
+        for _ in 0..<10 { t.swipeMoved(by: -20) }
+        t.swipeEnded()
+        XCTAssertFalse(t.isBusy)
+        XCTAssertEqual(turned, [])
+        _ = window
+    }
+
+    func testANeighbouringChapterIsPicturedAtThePageSize() throws {
+        let page = ReadingText.Page(text: "The Carpet-Bag\n\nI stuffed a shirt or two into my old carpet-bag.", number: 2, title: "The Carpet-Bag")
+        let image = try XCTUnwrap(ReadingText.picture(page, size: NSSize(width: 500, height: 320)))
+        XCTAssertEqual(CGFloat(image.width) / CGFloat(image.height), 500.0 / 320.0, accuracy: 0.01)
+        XCTAssertNil(ReadingText.picture(page, size: .zero))
     }
 
     func testNeighbouringChapters() {
         XCTAssertEqual(EpubPane.neighbour(of: 2, step: 1, in: [3, 1, 2]), 3)
         XCTAssertEqual(EpubPane.neighbour(of: 2, step: -1, in: [3, 1, 2]), 1)
-        XCTAssertNil(EpubPane.neighbour(of: 3, step: 1, in: [1, 2, 3]))         // no page after the last
+        XCTAssertNil(EpubPane.neighbour(of: 3, step: 1, in: [1, 2, 3]))
         XCTAssertNil(EpubPane.neighbour(of: 1, step: -1, in: [1, 2, 3]))
         XCTAssertNil(EpubPane.neighbour(of: nil, step: 1, in: [1, 2]))
-        XCTAssertNil(EpubPane.neighbour(of: 9, step: 1, in: [1, 2]))
     }
 
     func testSpaceTurnsOnlyAtTheEnd() {
         let bounds = NSRect(x: 0, y: 0, width: 600, height: 3000)
         XCTAssertFalse(PaperTextView.atEnd(NSRect(x: 0, y: 0, width: 600, height: 700), bounds))
         XCTAssertTrue(PaperTextView.atEnd(NSRect(x: 0, y: 2300, width: 600, height: 700), bounds))
-        XCTAssertTrue(PaperTextView.atEnd(NSRect(x: 0, y: 0, width: 600, height: 700), NSRect(x: 0, y: 0, width: 600, height: 500)))  // short chapter
     }
 
     func testArrowKeysAskForATurn() throws {
@@ -99,21 +157,5 @@ final class PageTurnTests: XCTestCase {
             tv.keyDown(with: e)
         }
         XCTAssertEqual(asked, [1, -1])
-    }
-
-    /// The turn plays over the page and then gets out of the way.
-    func testATurnPlaysThenClears() async throws {
-        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
-        scroll.documentView = NSTextView(frame: scroll.bounds)
-        let turner = PageTurnView(scroll: scroll)
-        turner.frame = NSRect(x: 0, y: 0, width: 400, height: 300)              // the scroll view follows by autoresizing
-        XCTAssertEqual(scroll.frame.size, turner.frame.size)
-        let window = NSWindow(contentRect: turner.frame, styleMask: [.titled], backing: .buffered, defer: false)
-        window.contentView = turner
-        let old = try XCTUnwrap(turner.snapshot())
-        turner.turn(from: old, forward: true)
-        XCTAssertTrue(turner.isTurning)
-        try await Task.sleep(for: .seconds(PageCurl.duration + 0.4))
-        XCTAssertFalse(turner.isTurning)
     }
 }

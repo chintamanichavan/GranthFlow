@@ -37,7 +37,7 @@ struct EpubPane: View {
                         guard let quote, let loaded else { return onSelect(nil) }
                         onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
                     },
-                    onTurn: turn(by:))
+                    onTurn: turn(by:), peek: peek(_:))
             .frame(minWidth: 320)
             .overlay(alignment: .leading) { TurnArrow(direction: -1, enabled: neighbour(-1) != nil) { turn(by: -1) } }
             .overlay(alignment: .trailing) { TurnArrow(direction: 1, enabled: neighbour(1) != nil) { turn(by: 1) } }
@@ -57,6 +57,14 @@ struct EpubPane: View {
 
     private func turn(by step: Int) {
         if let next = neighbour(step) { chapter = next }
+    }
+
+    /// The neighbouring chapter's text and title, for a swipe to show before the page is turned.
+    private func peek(_ step: Int) -> ReadingText.Page? {
+        guard let number = neighbour(step) else { return nil }
+        let r = Engine.run("text", args: [String(number)], on: document.data, name: document.name, kind: document.kind)
+        guard r.succeeded else { return nil }
+        return ReadingText.Page(text: r.output, number: number, title: titles[number] ?? "")
     }
 
     private func reload() {
@@ -87,9 +95,24 @@ struct ReadingText: NSViewRepresentable {
     var onSelect: (String?) -> Void = { _ in }
     /// Asks for the next (+1) or previous (-1) chapter, from the arrow keys or Space at the end.
     var onTurn: (Int) -> Void = { _ in }
+    /// The neighbouring chapter (+1, -1), or nil when there is none that way.
+    var peek: (Int) -> Page? = { _ in nil }
+
+    struct Page {
+        let text: String
+        let number: Int
+        let title: String
+    }
 
     func makeNSView(context: Context) -> PageTurnView {
-        let scroll = NSScrollView()
+        let turner = PageTurnView(scroll: Self.makePage())
+        (turner.scroll.documentView as? PaperTextView)?.delegate = context.coordinator
+        return turner
+    }
+
+    /// The scroll view and text view a chapter is set in. Also used to draw a neighbouring chapter off-screen.
+    static func makePage() -> PageScrollView {
+        let scroll = PageScrollView()
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         scroll.drawsBackground = true
@@ -106,19 +129,41 @@ struct ReadingText: NSViewRepresentable {
         tv.backgroundColor = Theme.paper.window
         tv.selectedTextAttributes = [.backgroundColor: Theme.mark.withAlphaComponent(0.55)]
         tv.setAccessibilityIdentifier("epubText")
-        tv.delegate = context.coordinator
         scroll.documentView = tv
-        return PageTurnView(scroll: scroll)
+        return scroll
+    }
+
+    /// A neighbouring chapter drawn off-screen at the size of the page on show, top of the chapter in view.
+    static func picture(_ page: Page, size: NSSize) -> CGImage? {
+        guard size.width > 1, size.height > 1 else { return nil }
+        let scroll = makePage()
+        scroll.frame = NSRect(origin: .zero, size: size)
+        let tv = scroll.documentView as! NSTextView
+        tv.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height))
+        tv.textStorage?.setAttributedString(ReadingStyle.chapter(page.text, number: page.number, title: page.title))
+        tv.sizeToFit()
+        scroll.layoutSubtreeIfNeeded()
+        tv.scrollToBeginningOfDocument(nil)
+        guard let rep = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds) else { return nil }
+        scroll.cacheDisplay(in: scroll.bounds, to: rep)
+        return rep.cgImage
     }
 
     func updateNSView(_ turner: PageTurnView, context: Context) {
         let tv = turner.scroll.documentView as! PaperTextView
         tv.onTurn = onTurn
+        let peek = self.peek
+        turner.preview = { [weak turner] step in
+            guard let turner, let page = peek(step) else { return nil }
+            return ReadingText.picture(page, size: turner.bounds.size)
+        }
+        turner.commit = onTurn
         let shown = [String(number ?? 0), title, text]
         if context.coordinator.shown != shown {
             // A new chapter number is a page turn: picture the old page before the text changes.
             let previous = Int(context.coordinator.shown.first ?? "")
-            let turning = previous != nil && previous != 0 && number != nil && previous != number && turner.window != nil
+            // A swipe has already pictured and is finishing its own turn, so it is not played twice.
+            let turning = previous != nil && previous != 0 && number != nil && previous != number && turner.window != nil && !turner.isBusy
             let old = turning ? turner.snapshot() : nil
             context.coordinator.shown = shown
             tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title))
