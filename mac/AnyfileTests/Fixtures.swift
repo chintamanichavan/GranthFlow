@@ -1,5 +1,6 @@
 // Small files the tests build on the fly; nothing is read from the repository.
 import Foundation
+import XCTest
 
 enum Fixtures {
     static let tinyPdf = """
@@ -82,6 +83,16 @@ enum Fixtures {
             for _ in 0..<8 { crc = (crc >> 1) ^ (0xEDB8_8320 & (0 &- (crc & 1))) }
         }
         return ~crc
+    }
+
+    /// A real book to test against, named by ANYFILE_REAL_BOOK (pass TEST_RUNNER_ANYFILE_REAL_BOOK to
+    /// xcodebuild). Tests that need one skip without it: reading the user's own folders, such as
+    /// Downloads, makes macOS ask for permission, and an unanswered prompt stalled a whole run.
+    static func realBook() throws -> String {
+        guard let path = ProcessInfo.processInfo.environment["ANYFILE_REAL_BOOK"], !path.isEmpty else {
+            throw XCTSkip("set ANYFILE_REAL_BOOK to a real .epub to run this test")
+        }
+        return path
     }
 
     /// Writes contents to a fresh temp directory and returns the file URL.

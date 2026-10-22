@@ -3,6 +3,13 @@ import XCTest
 
 /// The tests run inside the app, so Bundle.main is the built Anyfile.app.
 final class IconTests: XCTestCase {
+    /// The app is called GranthFlow wherever people see it; its code and folders keep the name Anyfile.
+    func testTheAppIsCalledGranthFlow() {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String, "GranthFlow")
+        XCTAssertEqual(Bundle.main.bundleURL.lastPathComponent, "GranthFlow.app")
+        XCTAssertEqual(Bundle.main.bundleIdentifier, "local.granthflow.app")
+    }
+
     func testTheAppNamesItsIcon() {
         XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") as? String, "AppIcon")
     }

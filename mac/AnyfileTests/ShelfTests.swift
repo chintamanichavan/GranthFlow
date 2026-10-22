@@ -114,8 +114,7 @@ final class ShelfTests: XCTestCase {
 
     /// The library with the real book that showed the missing cover, when it is on this Mac.
     func testLibraryWithARealBookDraws() async throws {
-        let path = NSString(string: "~/Downloads/h3fwq1oo9sxt9eyh4q3u5wlx-0017-anna-karenina-leo-tolstoy.epub").expandingTildeInPath
-        guard FileManager.default.fileExists(atPath: path) else { throw XCTSkip("Anna Karenina is not in Downloads") }
+        let path = try Fixtures.realBook()
         let lib = Library(file: dir.appendingPathComponent("l.json"))
         let book = URL(fileURLWithPath: path)
         lib.recordOpened(book, kind: "epub")

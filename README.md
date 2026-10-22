@@ -3,7 +3,9 @@
 This repository holds two readers, each with its own README below:
 
 - **Anyfile**: a C++20 engine that reads and modifies PDF, EPUB, Markdown, text and binary files,
-  with a SwiftUI Mac app on top (`src/` except `src/granthflow`, `tests/`, `mac/`, `design/`).
+  with a SwiftUI Mac app on top, named **GranthFlow** (ग्रंथ, Marathi for book) in the Dock and
+  menus. Its code and folders keep the name Anyfile (`src/` except `src/granthflow`, `tests/`,
+  `mac/`, `design/`).
 - **granthflow**: a personal EPUB reader for the web, FastAPI + SQLite + epub.js
   (`src/granthflow/`, `pyproject.toml`, `data/`).
 

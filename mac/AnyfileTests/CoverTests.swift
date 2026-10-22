@@ -35,8 +35,8 @@ final class CoverTests: XCTestCase {
 
     /// The book that showed the bug, when it is on this Mac. Large covers are read at shelf size.
     func testRealBookUsesItsCoverArt() throws {
-        let path = NSString(string: "~/Downloads/h3fwq1oo9sxt9eyh4q3u5wlx-0017-anna-karenina-leo-tolstoy.epub").expandingTildeInPath
-        guard let data = FileManager.default.contents(atPath: path) else { throw XCTSkip("Anna Karenina is not in Downloads") }
+        let path = try Fixtures.realBook()
+        guard let data = FileManager.default.contents(atPath: path) else { throw XCTSkip("cannot read \(path)") }
         let start = Date()
         let art = Cover.art(for: data, name: "anna-karenina.epub", kind: "epub")
         print(String(format: "cover of a %.1f MB book with a 2.4 MB JPEG: %.3f s", Double(data.count) / 1e6, Date().timeIntervalSince(start)))

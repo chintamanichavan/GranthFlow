@@ -24,7 +24,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		FFFFFFFFFFFFFFFFFFFFFF01 /* Anyfile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Anyfile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFFFFFFFFFFFFFFFFFFFFF01 /* GranthFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GranthFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -120,7 +120,7 @@
 		BBBBBBBBBBBBBBBBBBBBBB02 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				FFFFFFFFFFFFFFFFFFFFFF01 /* Anyfile.app */,
+				FFFFFFFFFFFFFFFFFFFFFF01 /* GranthFlow.app */,
 				FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */,
 				FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */,
 			);
@@ -150,7 +150,7 @@
 			packageProductDependencies = (
 			);
 			productName = Anyfile;
-			productReference = FFFFFFFFFFFFFFFFFFFFFF01 /* Anyfile.app */;
+			productReference = FFFFFFFFFFFFFFFFFFFFFF01 /* GranthFlow.app */;
 			productType = "com.apple.product-type.application";
 		};
 		DDDDDDDDDDDDDDDDDDDDDD02 /* AnyfileTests */ = {
@@ -435,8 +435,9 @@
 					"@executable_path/../Frameworks",
 				);
 				OTHER_LDFLAGS = "-lz";
-				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.app;
-				PRODUCT_NAME = Anyfile;
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.app;
+				PRODUCT_MODULE_NAME = Anyfile;
+				PRODUCT_NAME = GranthFlow;
 				SWIFT_OBJC_BRIDGING_HEADER = Anyfile/Bridge/AFEngine.h;
 			};
 			name = Debug;
@@ -455,8 +456,9 @@
 					"@executable_path/../Frameworks",
 				);
 				OTHER_LDFLAGS = "-lz";
-				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.app;
-				PRODUCT_NAME = Anyfile;
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.app;
+				PRODUCT_MODULE_NAME = Anyfile;
+				PRODUCT_NAME = GranthFlow;
 				SWIFT_OBJC_BRIDGING_HEADER = Anyfile/Bridge/AFEngine.h;
 			};
 			name = Release;
@@ -472,9 +474,9 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Anyfile.app/Contents/MacOS/Anyfile";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GranthFlow.app/Contents/MacOS/GranthFlow";
 			};
 			name = Debug;
 		};
@@ -489,9 +491,9 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Anyfile.app/Contents/MacOS/Anyfile";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/GranthFlow.app/Contents/MacOS/GranthFlow";
 			};
 			name = Release;
 		};
@@ -505,7 +507,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_TARGET_NAME = Anyfile;
 			};
@@ -521,7 +523,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_TARGET_NAME = Anyfile;
 			};
