@@ -25,15 +25,21 @@ final class AnyfileUITests: XCTestCase {
         return v.isEmpty ? e.label : v
     }
 
-    private func runCommand(_ app: XCUIApplication, _ name: String, args: String) {
+    /// Opens Info or Edit on the action bar, then picks and runs a command in its card.
+    private func runCommand(_ app: XCUIApplication, _ name: String, args: String, in action: String) {
+        let button = element(app, "action.\(action)")
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        button.click()
         let picker = element(app, "commandPicker")
         XCTAssertTrue(picker.waitForExistence(timeout: 5))
         picker.click()
         app.menuItems[name].firstMatch.click()
         let field = element(app, "argsField")
-        field.click()
-        field.typeKey("a", modifierFlags: .command)
-        field.typeText(args)
+        if !args.isEmpty {
+            field.click()
+            field.typeKey("a", modifierFlags: .command)
+            field.typeText(args)
+        }
         element(app, "runButton").click()
     }
 
@@ -43,7 +49,7 @@ final class AnyfileUITests: XCTestCase {
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         XCTAssertTrue((editor.value as? String ?? "").contains("alpha"))
         XCTAssertTrue(text(of: element(app, "kindLabel")).contains("text"))
-        runCommand(app, "count", args: "")
+        runCommand(app, "count", args: "", in: "info")
         let output = element(app, "outputText")
         XCTAssertTrue(output.waitForExistence(timeout: 5))
         XCTAssertTrue(text(of: output).contains("lines:      3"), text(of: output))
@@ -52,12 +58,27 @@ final class AnyfileUITests: XCTestCase {
     func testReplaceCommandUpdatesEditor() {
         let app = launch(Data("alpha\nbeta\n".utf8), as: "notes.txt")
         XCTAssertTrue(element(app, "textEditor").waitForExistence(timeout: 10))
-        runCommand(app, "replace", args: "alpha ALPHA")
+        runCommand(app, "replace", args: "alpha ALPHA", in: "edit")
         let editor = element(app, "textEditor")
         let updated = NSPredicate(format: "value CONTAINS %@", "ALPHA")
         expectation(for: updated, evaluatedWith: editor)
         waitForExpectations(timeout: 5)
         XCTAssertTrue(text(of: element(app, "outputText")).contains("replaced 1"))
+    }
+
+    func testActionBarHasFiveActionsAndInfoShowsSummary() {
+        let app = launch(Data("alpha\nbeta\n".utf8), as: "notes.txt")
+        XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))
+        for id in ["contents", "find", "edit", "mark", "info"] {
+            XCTAssertTrue(element(app, "action.\(id)").exists, id)
+        }
+        XCTAssertFalse(element(app, "commandPicker").exists)        // no card until an action is chosen
+        element(app, "action.info").click()
+        let output = element(app, "outputText")
+        XCTAssertTrue(output.waitForExistence(timeout: 5))
+        XCTAssertTrue(text(of: output).contains("text"), text(of: output))   // info ran without pressing Run
+        element(app, "action.info").click()
+        XCTAssertTrue(element(app, "commandPicker").waitForNonExistence(timeout: 5))
     }
 
     func testMarkdownPreviewToggle() {
@@ -118,7 +139,7 @@ final class AnyfileUITests: XCTestCase {
         let app = launch(tinyEpub(), as: "book.epub")
         let reading = element(app, "epubText")
         XCTAssertTrue(reading.waitForExistence(timeout: 10))
-        runCommand(app, "replace", args: "Hello Goodbye")
+        runCommand(app, "replace", args: "Hello Goodbye", in: "edit")
         expectation(for: NSPredicate(format: "value CONTAINS %@", "Goodbye book"), evaluatedWith: reading)
         waitForExpectations(timeout: 5)
         XCTAssertTrue(text(of: element(app, "outputText")).contains("chapter 1: 1 replacement"))
