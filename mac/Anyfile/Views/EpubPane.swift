@@ -24,13 +24,18 @@ struct EpubPane: View {
     @Binding var chapter: Int?
     /// A Find jump: its query is selected once the chapter's text is on show.
     var find: Jump? = nil
+    var marks: [String] = []
+    var onSelect: (Selection?) -> Void = { _ in }
     @State private var text = ""
     @State private var title = ""
     @State private var loaded: Int?                 // the chapter whose text is in `text`
     @State private var titles: [Int: String] = [:]
 
     var body: some View {
-        ReadingText(text: text, number: loaded, title: title, find: find?.target == loaded ? find : nil)
+        ReadingText(text: text, number: loaded, title: title, find: find?.target == loaded ? find : nil, marks: marks) { quote in
+            guard let quote, let loaded else { return onSelect(nil) }
+            onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
+        }
             .frame(minWidth: 320)
             .onAppear { reload() }
             .onChange(of: document.data) { reload() }      // a command changed the book
@@ -61,6 +66,8 @@ struct ReadingText: NSViewRepresentable {
     var number: Int? = nil
     var title: String = ""
     var find: Jump? = nil
+    var marks: [String] = []
+    var onSelect: (String?) -> Void = { _ in }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
@@ -80,6 +87,7 @@ struct ReadingText: NSViewRepresentable {
         tv.backgroundColor = Theme.paper.window
         tv.selectedTextAttributes = [.backgroundColor: Theme.mark.withAlphaComponent(0.55)]
         tv.setAccessibilityIdentifier("epubText")
+        tv.delegate = context.coordinator
         scroll.documentView = tv
         return scroll
     }
@@ -91,6 +99,12 @@ struct ReadingText: NSViewRepresentable {
             context.coordinator.shown = shown
             tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title))
             tv.scrollToBeginningOfDocument(nil)
+            context.coordinator.lastMarks = nil
+        }
+        context.coordinator.onSelect = onSelect
+        if marks != context.coordinator.lastMarks {
+            context.coordinator.lastMarks = marks
+            Highlights.apply(marks, to: tv)
         }
         // The chapter's text can arrive one update after the jump, so a jump whose query is not
         // in the text yet stays pending instead of being used up.
@@ -106,8 +120,16 @@ struct ReadingText: NSViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
-    final class Coordinator {
+    final class Coordinator: NSObject, NSTextViewDelegate {
         var lastFind: Jump?
         var shown: [String] = []
+        var lastMarks: [String]?
+        var onSelect: (String?) -> Void = { _ in }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView else { return }
+            let r = tv.selectedRange()
+            onSelect(r.length > 0 ? (tv.string as NSString).substring(with: r) : nil)
+        }
     }
 }

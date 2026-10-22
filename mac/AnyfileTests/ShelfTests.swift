@@ -50,7 +50,7 @@ final class ShelfTests: XCTestCase {
         XCTAssertEqual(LibrarySection.documents.entries(in: lib).map(\.name), ["b.pdf"])
         XCTAssertEqual(LibrarySection.notes.entries(in: lib).map(\.name), ["d.txt", "c.md"])
         XCTAssertEqual(LibrarySection.other.entries(in: lib).map(\.name), ["e.bin"])
-        let all = Set(LibrarySection.allCases.filter { $0 != .library && $0 != .continueReading }.flatMap { $0.entries(in: lib).map(\.name) })
+        let all = Set(LibrarySection.allCases.filter { ![.library, .continueReading, .marks].contains($0) }.flatMap { $0.entries(in: lib).map(\.name) })
         XCTAssertEqual(all.count, 5)                                    // every kind lands on exactly one shelf
     }
 
@@ -77,6 +77,29 @@ final class ShelfTests: XCTestCase {
         XCTAssertEqual(rep.pixelsWide, Int(1100 * (window.backingScaleFactor)))
         if let dir = ProcessInfo.processInfo.environment["ANYFILE_SNAPSHOT_DIR"], let png = rep.representation(using: .png, properties: [:]) {
             try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("library.png"))
+        }
+    }
+
+    func testLibraryWithMarksDraws() async throws {
+        let lib = Library(file: dir.appendingPathComponent("l.json"))
+        let marks = MarkStore(file: dir.appendingPathComponent("m.json"))
+        let book = write(Fixtures.epub, "Tiny Book.epub")
+        lib.recordOpened(book, kind: "epub")
+        marks.add(Selection(quote: "Hello book & reader.", target: 1, place: "Opening"), in: book, kind: "epub")
+        marks.add(Selection(quote: "Costs held flat for the third quarter in a row.", target: 2, place: "Page 3"),
+                  in: write(Data(Fixtures.tinyPdf.utf8), "Q3 Report.pdf"), kind: "pdf")
+        XCTAssertEqual(marks.all.count, 2)
+        // The view reads the shared stores; this checks the cards themselves draw.
+        let cards = VStack(alignment: .leading, spacing: 12) {
+            ForEach(marks.all) { MarkRow(mark: $0, choose: {}, remove: {}) }
+        }
+        let renderer = ImageRenderer(content: cards.frame(width: 520).padding(16).background(Color.white))
+        renderer.scale = 2
+        let image = try XCTUnwrap(renderer.nsImage)
+        XCTAssertGreaterThan(image.size.height, 100)
+        if let out = ProcessInfo.processInfo.environment["ANYFILE_SNAPSHOT_DIR"], let tiff = image.tiffRepresentation,
+           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+            try png.write(to: URL(fileURLWithPath: out).appendingPathComponent("marks.png"))
         }
     }
 }

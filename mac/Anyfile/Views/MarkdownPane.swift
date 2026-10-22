@@ -5,6 +5,8 @@ struct MarkdownPane: View {
     @Binding var document: AnyfileDocument
     /// A heading's line number from Contents, followed in both modes.
     var jump: Jump? = nil
+    var marks: [String] = []
+    var onSelect: (Selection?) -> Void = { _ in }
     @State private var showPreview = false
 
     var body: some View {
@@ -17,6 +19,9 @@ struct MarkdownPane: View {
             .frame(width: 180)
             .padding(6)
             .accessibilityIdentifier("markdownMode")
+            .onChange(of: showPreview) { _, preview in
+                if preview { onSelect(nil) }                // the preview's text cannot report a selection
+            }
             Divider()
             if showPreview {
                 ScrollViewReader { proxy in
@@ -43,7 +48,7 @@ struct MarkdownPane: View {
                     }
                 }
             } else {
-                TextPane(text: $document.text, jump: jump)
+                TextPane(text: $document.text, jump: jump, marks: marks, onSelect: onSelect)
             }
         }
     }

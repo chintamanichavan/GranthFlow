@@ -10,7 +10,8 @@ final class AnyfileUITests: XCTestCase {
         let url = dir.appendingPathComponent(name)
         try! contents.write(to: url)
         let app = XCUIApplication()
-        app.launchArguments = ["--open", url.path, "--library", dir.appendingPathComponent("library.json").path]
+        app.launchArguments = ["--open", url.path, "--library", dir.appendingPathComponent("library.json").path,
+                               "--marks", dir.appendingPathComponent("marks.json").path]
         app.launch()
         return app
     }
@@ -147,6 +148,33 @@ final class AnyfileUITests: XCTestCase {
         XCTAssertTrue(element(app, "section.notes").exists)
         item.click()
         XCTAssertTrue(element(app, "textEditor").waitForExistence(timeout: 10))
+    }
+
+    func testMarkKeepsTheSelectionAndTheLibraryOpensIt() {
+        let app = launch(Data("Call me Ishmael.\nSome years ago.\n".utf8), as: "moby.txt")
+        let editor = element(app, "textEditor")
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        element(app, "action.mark").click()
+        XCTAssertTrue(text(of: element(app, "markStatus")).contains("Select a passage"))   // nothing selected yet
+        element(app, "action.mark").click()                                                // close the card
+        editor.click()
+        editor.typeKey(.downArrow, modifierFlags: .command)                                // end of file
+        editor.typeKey(.upArrow, modifierFlags: [])
+        editor.typeKey(.rightArrow, modifierFlags: [.command, .shift])                      // select "Some years ago."
+        element(app, "action.mark").click()
+        XCTAssertTrue(text(of: element(app, "markStatus")).contains("Marked · Line 2"), text(of: element(app, "markStatus")))
+        XCTAssertTrue(element(app, "mark.Some years ago.").waitForExistence(timeout: 5))
+
+        app.typeKey("w", modifierFlags: .command)
+        app.typeKey("l", modifierFlags: [.command, .shift])
+        let card = element(app, "markCard.Some years ago.")
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.click()
+        let reopened = element(app, "textEditor")
+        XCTAssertTrue(reopened.waitForExistence(timeout: 10))
+        app.typeText("X")                                      // the passage is selected, so typing replaces it
+        expectation(for: NSPredicate(format: "value CONTAINS %@", "Ishmael.\nX\n"), evaluatedWith: reopened)
+        waitForExpectations(timeout: 5)
     }
 
     func testContentsDisabledForPlainText() {

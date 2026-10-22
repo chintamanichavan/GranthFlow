@@ -6,6 +6,9 @@ struct TextPane: NSViewRepresentable {
     @Binding var text: String
     /// A 1-based line to bring into view and select, once per jump.
     var jump: Jump? = nil
+    /// Quotes to paint as marks.
+    var marks: [String] = []
+    var onSelect: (Selection?) -> Void = { _ in }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
@@ -29,10 +32,16 @@ struct TextPane: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         let tv = scroll.documentView as! NSTextView
+        context.coordinator.onSelect = onSelect
         if tv.string != text {
             let sel = tv.selectedRanges
             tv.string = text
             tv.selectedRanges = sel.filter { ($0.rangeValue.location + $0.rangeValue.length) <= tv.string.utf16.count }
+        }
+        if marks != context.coordinator.lastMarks || tv.string.utf16.count != context.coordinator.lastLength {
+            context.coordinator.lastMarks = marks
+            context.coordinator.lastLength = tv.string.utf16.count
+            Highlights.apply(marks, to: tv)
         }
         if jump != context.coordinator.lastJump {
             context.coordinator.lastJump = jump
@@ -72,7 +81,19 @@ struct TextPane: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         var lastJump: Jump?
+        var lastMarks: [String] = []
+        var lastLength = -1
+        var onSelect: (Selection?) -> Void = { _ in }
         init(text: Binding<String>) { self.text = text }
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView else { return }
+            let r = tv.selectedRange()
+            guard r.length > 0 else { return onSelect(nil) }
+            let ns = tv.string as NSString
+            let line = Highlights.line(at: r.location, in: ns)
+            onSelect(Selection(quote: ns.substring(with: r), target: line, place: "Line \(line)"))
+        }
+
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             text.wrappedValue = tv.string

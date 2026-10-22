@@ -12,7 +12,7 @@ struct ShelfFace {
 }
 
 enum LibrarySection: String, CaseIterable, Identifiable {
-    case library, continueReading, books, documents, notes, other
+    case library, continueReading, marks, books, documents, notes, other
 
     var id: String { rawValue }
 
@@ -20,6 +20,7 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         switch self {
         case .library: "Library"
         case .continueReading: "Continue reading"
+        case .marks: "Marks"
         case .books: "Books"
         case .documents: "Documents"
         case .notes: "Notes and text"
@@ -31,6 +32,7 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         switch self {
         case .library: "books.vertical"
         case .continueReading: "bookmark"
+        case .marks: "highlighter"
         case .books: "book.closed"
         case .documents: "doc.richtext"
         case .notes: "note.text"
@@ -42,6 +44,7 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         switch self {
         case .library: library.recent
         case .continueReading: library.continueReading
+        case .marks: []                                  // marks are listed by the view, not as files
         case .books: library.recent.filter { $0.kind == "epub" }
         case .documents: library.recent.filter { $0.kind == "pdf" }
         case .notes: library.recent.filter { $0.kind == "markdown" || $0.kind == "text" }

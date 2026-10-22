@@ -31,7 +31,7 @@ enum DocumentAction: String, CaseIterable, Identifiable {
     func unavailableReason(for kind: String) -> String? {
         switch self {
         case .contents: Contents.hasContents(kind: kind) ? nil : "This kind of file has no contents to list"
-        case .mark: "\(title) is not built yet"
+        case .mark: kind == "binary" ? "Bytes cannot be marked yet; Find can locate them" : nil
         case .find, .edit, .info: nil
         }
     }
@@ -64,5 +64,12 @@ enum CommandRole {
     static func infoCommands(for kind: String) -> [CommandInfo] {
         let reads = Engine.commands(for: kind).filter { reading.contains($0.name) && $0.name != "help" }
         return reads.filter { $0.name == "info" } + reads.filter { $0.name != "info" }
+    }
+}
+
+enum MarkHint {
+    /// What to do when Mark is pressed with nothing selected.
+    static func text(kind: String) -> String {
+        kind == "markdown" ? "Select a passage in Edit, then press Mark" : "Select a passage, then press Mark"
     }
 }

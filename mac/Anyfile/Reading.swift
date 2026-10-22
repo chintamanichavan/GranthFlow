@@ -60,3 +60,37 @@ final class PaperTextView: NSTextView {
         if textContainerInset.width != inset { textContainerInset = NSSize(width: inset, height: 48) }
     }
 }
+
+enum Highlights {
+    /// Paints every occurrence of each marked quote with the mark colour. Temporary attributes,
+    /// so the highlight is drawn but never becomes part of the text.
+    static func apply(_ quotes: [String], to tv: NSTextView) {
+        guard let lm = tv.layoutManager else { return }
+        let ns = tv.string as NSString
+        lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: NSRange(location: 0, length: ns.length))
+        for quote in quotes where !quote.isEmpty {
+            for r in ranges(of: quote, in: ns) {
+                lm.addTemporaryAttribute(.backgroundColor, value: Theme.mark.withAlphaComponent(0.7), forCharacterRange: r)
+            }
+        }
+    }
+
+    static func ranges(of quote: String, in ns: NSString) -> [NSRange] {
+        var out: [NSRange] = []
+        var from = 0
+        while from < ns.length {
+            let r = ns.range(of: quote, options: [], range: NSRange(location: from, length: ns.length - from))
+            if r.location == NSNotFound { break }
+            out.append(r)
+            from = NSMaxRange(r)
+        }
+        return out
+    }
+
+    /// The 1-based line holding a UTF-16 offset.
+    static func line(at location: Int, in ns: NSString) -> Int {
+        var line = 1
+        for i in 0..<min(location, ns.length) where ns.character(at: i) == 0x0A { line += 1 }
+        return line
+    }
+}

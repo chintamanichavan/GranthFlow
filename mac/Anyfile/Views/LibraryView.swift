@@ -7,8 +7,10 @@ struct LibraryView: View {
     @State private var library: Library
     @State private var section: LibrarySection? = .library
     @State private var faces: [String: ShelfFace] = [:]
+    private let markStore = MarkStore.shared
 
-    init(library: Library = .shared) { _library = State(initialValue: library) }
+    /// Tests pass their own library; the app uses the shared one.
+    @MainActor init(library: Library? = nil) { _library = State(initialValue: library ?? .shared) }
 
     private var shown: [LibraryEntry] { (section ?? .library).entries(in: library) }
 
@@ -17,7 +19,7 @@ struct LibraryView: View {
             List(selection: $section) {
                 ForEach(LibrarySection.allCases) { s in
                     Label(s.title, systemImage: s.symbol)
-                        .badge(s.entries(in: library).count)
+                        .badge(s == .marks ? markStore.marks.count : s.entries(in: library).count)
                         .tag(s)
                         .accessibilityIdentifier("section.\(s.rawValue)")
                 }
@@ -29,7 +31,9 @@ struct LibraryView: View {
                     if section == .library, let current = library.continueReading.first {
                         Hero(entry: current, face: faces[current.path]) { open(current) }
                     }
-                    if shown.isEmpty {
+                    if section == .marks {
+                        MarksList(marks: markStore.all, open: open(_:), remove: { markStore.remove($0) })
+                    } else if shown.isEmpty {
                         EmptyShelf(section: section ?? .library, open: openPanel)
                     } else {
                         Text(section == .library ? "Recently opened" : (section ?? .library).title)
@@ -46,6 +50,9 @@ struct LibraryView: View {
                         }
                         .padding(.horizontal, 32)
                         .padding(.bottom, 40)
+                        if section == .library, !markStore.marks.isEmpty {
+                            YourMarks(marks: Array(markStore.all.prefix(6)), open: open(_:))
+                        }
                     }
                 }
             }
@@ -79,6 +86,14 @@ struct LibraryView: View {
 
     private func open(_ entry: LibraryEntry) {
         NSDocumentController.shared.openDocument(withContentsOf: entry.url, display: true) { _, _, error in
+            if let error { NSApp.presentError(error) }
+        }
+    }
+
+    /// Opens the mark's file; its window goes to the passage when it sees the pending mark.
+    private func open(_ mark: Mark) {
+        markStore.pending = mark
+        NSDocumentController.shared.openDocument(withContentsOf: URL(fileURLWithPath: mark.path), display: true) { _, _, error in
             if let error { NSApp.presentError(error) }
         }
     }
@@ -187,5 +202,77 @@ private struct EmptyShelf: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 120)
+    }
+}
+
+/// The newest marks from every file, side by side: a line of a novel beside a line of a report.
+private struct YourMarks: View {
+    let marks: [Mark]
+    let open: (Mark) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Your marks").font(.title2.weight(.semibold))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 230, maximum: 320), spacing: 18)], alignment: .leading, spacing: 18) {
+                ForEach(marks) { mark in MarkCard(mark: mark) { open(mark) } }
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.bottom, 40)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("yourMarks")
+    }
+}
+
+private struct MarkCard: View {
+    let mark: Mark
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(alignment: .top, spacing: 12) {
+                RoundedRectangle(cornerRadius: 1.5).fill(Color(nsColor: Theme.mark)).frame(width: 3)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("“\(mark.quote)”").font(.system(size: 14, design: .serif)).lineLimit(3)
+                        .foregroundStyle(Color(nsColor: Theme.library.label))
+                    Text("\(mark.name)  ·  \(mark.place)").font(.caption).lineLimit(1)
+                        .foregroundStyle(Color(nsColor: Theme.library.secondary))
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
+            .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+            .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Open \(mark.name) at this passage")
+        .accessibilityIdentifier("markCard.\(mark.quote.prefix(24))")
+    }
+}
+
+/// Every mark, newest first, with the file it is in.
+private struct MarksList: View {
+    let marks: [Mark]
+    let open: (Mark) -> Void
+    let remove: (Mark) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Marks").font(.title2.weight(.semibold)).padding(.bottom, 12)
+            if marks.isEmpty {
+                Text("Select a passage in any file and press Mark. It will be kept here.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(marks) { mark in
+                MarkRow(mark: Mark(id: mark.id, path: mark.path, kind: mark.kind, quote: mark.quote, target: mark.target,
+                                   place: "\(mark.name)  ·  \(mark.place)", created: mark.created),
+                        choose: { open(mark) }, remove: { remove(mark) })
+                Divider()
+            }
+        }
+        .frame(maxWidth: 720, alignment: .leading)
+        .padding(32)
     }
 }

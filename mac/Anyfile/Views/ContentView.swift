@@ -10,6 +10,9 @@ struct ContentView: View {
     @State private var entries: [ContentsEntry] = []
     @State private var jump: Jump?
     @State private var chapter: Int?            // EPUB shows one chapter at a time
+    @State private var selection: Selection?
+    @State private var markStatus = ""
+    private let markStore = MarkStore.shared
 
     /// The place reading stopped is restored here, before any pane appears: the EPUB pane picks
     /// chapter 1 when it finds none, and that would be recorded over the saved place.
@@ -55,6 +58,8 @@ struct ContentView: View {
         }
         .onExitCommand { active = nil }
         .onAppear(perform: remember)
+        .onChange(of: active) { _, now in if now == .mark { markSelection() } }
+        .onChange(of: markStore.pending) { followPendingMark() }
         .onChange(of: fileURL) { remember() }
         .onChange(of: chapter) { _, chapter in
             guard let fileURL, let chapter else { return }
@@ -74,12 +79,13 @@ struct ContentView: View {
 
     @ViewBuilder private var pane: some View {
         switch document.kind {
-        case "pdf": PdfPane(document: document, jump: jump) { page, count in
+        case "pdf": PdfPane(document: document, jump: jump, onPage: { page, count in
             if let fileURL { Library.shared.recordPosition(fileURL, position: page, total: count) }
-        }
-        case "epub": EpubPane(document: document, chapter: $chapter, find: jump)
-        case "markdown": MarkdownPane(document: $document, jump: jump)
-        case "text": TextPane(text: $document.text, jump: jump)
+        }, marks: marks, onSelect: { selection = $0 })
+        case "epub": EpubPane(document: document, chapter: $chapter, find: jump,
+                              marks: marks.filter { $0.target == chapter }.map(\.quote), onSelect: { selection = $0 })
+        case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
+        case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
         default: HexPane(document: document, jump: jump)
         }
     }
@@ -97,6 +103,9 @@ struct ContentView: View {
         case .edit:
             AnyView(CommandPanel(title: "Edit", commands: CommandRole.editCommands(for: document.kind),
                                  document: $document, runsImmediately: false, onApply: apply).id("edit-\(document.kind)"))
+        case .mark:
+            AnyView(MarkPanel(marks: marks, status: markStatus, choose: { go(to: $0.target, query: $0.quote) },
+                              remove: { markStore.remove($0) }))
         case .find:
             AnyView(FindPanel(document: document) { hit, query in go(to: hit.target, query: query) }.id("find-\(document.kind)"))
         default:
@@ -106,6 +115,25 @@ struct ContentView: View {
 
     private func remember() {
         if let fileURL { Library.shared.recordOpened(fileURL, kind: document.kind) }
+        followPendingMark()
+    }
+
+    private var marks: [Mark] { fileURL.map(markStore.marks(for:)) ?? [] }
+
+    /// Pressing Mark keeps whatever is selected and says so; with nothing selected it says how.
+    private func markSelection() {
+        guard let fileURL else { markStatus = "Save the file to keep marks"; return }
+        guard let selection else { markStatus = MarkHint.text(kind: document.kind); return }
+        if let mark = markStore.add(selection, in: fileURL, kind: document.kind) {
+            markStatus = "Marked · \(mark.place)"
+        }
+    }
+
+    /// A mark chosen in the library goes to its place once this window shows that file.
+    private func followPendingMark() {
+        guard let mark = markStore.pending, let fileURL, mark.path == fileURL.standardizedFileURL.path else { return }
+        markStore.pending = nil
+        go(to: mark.target, query: mark.quote)
     }
 
     private var chapterCount: Int {
