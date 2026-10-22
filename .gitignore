@@ -1,0 +1,7 @@
+build/
+*.blend1
+design/*.png
+__pycache__/
+mac/build/
+xcuserdata/
+*.xcuserstate

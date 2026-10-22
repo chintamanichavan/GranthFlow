@@ -1,0 +1,555 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		DDDDDDDDDDDDDDDDDDDDDD21 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAAAAAAAAAAAAAAAAAAAAA01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DDDDDDDDDDDDDDDDDDDDDD01;
+			remoteInfo = Anyfile;
+		};
+		DDDDDDDDDDDDDDDDDDDDDD22 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAAAAAAAAAAAAAAAAAAAAA01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DDDDDDDDDDDDDDDDDDDDDD01;
+			remoteInfo = Anyfile;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		FFFFFFFFFFFFFFFFFFFFFF01 /* Anyfile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Anyfile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		CCCCCCCCCCCCCCCCCCCCCC09 /* Exceptions for "core" folder in "Anyfile" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				main.cpp,
+			);
+			target = DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		CCCCCCCCCCCCCCCCCCCCCC01 /* Anyfile */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Anyfile;
+			sourceTree = "<group>";
+		};
+		CCCCCCCCCCCCCCCCCCCCCC02 /* AnyfileTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AnyfileTests;
+			sourceTree = "<group>";
+		};
+		CCCCCCCCCCCCCCCCCCCCCC03 /* AnyfileUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AnyfileUITests;
+			sourceTree = "<group>";
+		};
+		CCCCCCCCCCCCCCCCCCCCCC04 /* core */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CCCCCCCCCCCCCCCCCCCCCC09 /* Exceptions for "core" folder in "Anyfile" target */,
+			);
+			name = core;
+			path = ../src;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		EEEEEEEEEEEEEEEEEEEEEE02 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE12 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE22 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BBBBBBBBBBBBBBBBBBBBBB01 = {
+			isa = PBXGroup;
+			children = (
+				CCCCCCCCCCCCCCCCCCCCCC01 /* Anyfile */,
+				CCCCCCCCCCCCCCCCCCCCCC04 /* core */,
+				CCCCCCCCCCCCCCCCCCCCCC02 /* AnyfileTests */,
+				CCCCCCCCCCCCCCCCCCCCCC03 /* AnyfileUITests */,
+				BBBBBBBBBBBBBBBBBBBBBB02 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BBBBBBBBBBBBBBBBBBBBBB02 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FFFFFFFFFFFFFFFFFFFFFF01 /* Anyfile.app */,
+				FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */,
+				FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAA12 /* Build configuration list for PBXNativeTarget "Anyfile" */;
+			buildPhases = (
+				EEEEEEEEEEEEEEEEEEEEEE01 /* Sources */,
+				EEEEEEEEEEEEEEEEEEEEEE02 /* Frameworks */,
+				EEEEEEEEEEEEEEEEEEEEEE03 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CCCCCCCCCCCCCCCCCCCCCC01 /* Anyfile */,
+				CCCCCCCCCCCCCCCCCCCCCC04 /* core */,
+			);
+			name = Anyfile;
+			packageProductDependencies = (
+			);
+			productName = Anyfile;
+			productReference = FFFFFFFFFFFFFFFFFFFFFF01 /* Anyfile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		DDDDDDDDDDDDDDDDDDDDDD02 /* AnyfileTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAA13 /* Build configuration list for PBXNativeTarget "AnyfileTests" */;
+			buildPhases = (
+				EEEEEEEEEEEEEEEEEEEEEE11 /* Sources */,
+				EEEEEEEEEEEEEEEEEEEEEE12 /* Frameworks */,
+				EEEEEEEEEEEEEEEEEEEEEE13 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DDDDDDDDDDDDDDDDDDDDDD11 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CCCCCCCCCCCCCCCCCCCCCC02 /* AnyfileTests */,
+			);
+			name = AnyfileTests;
+			packageProductDependencies = (
+			);
+			productName = AnyfileTests;
+			productReference = FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		DDDDDDDDDDDDDDDDDDDDDD03 /* AnyfileUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAA14 /* Build configuration list for PBXNativeTarget "AnyfileUITests" */;
+			buildPhases = (
+				EEEEEEEEEEEEEEEEEEEEEE21 /* Sources */,
+				EEEEEEEEEEEEEEEEEEEEEE22 /* Frameworks */,
+				EEEEEEEEEEEEEEEEEEEEEE23 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DDDDDDDDDDDDDDDDDDDDDD12 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CCCCCCCCCCCCCCCCCCCCCC03 /* AnyfileUITests */,
+			);
+			name = AnyfileUITests;
+			packageProductDependencies = (
+			);
+			productName = AnyfileUITests;
+			productReference = FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AAAAAAAAAAAAAAAAAAAAAA01 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					DDDDDDDDDDDDDDDDDDDDDD02 = {
+						TestTargetID = DDDDDDDDDDDDDDDDDDDDDD01;
+					};
+					DDDDDDDDDDDDDDDDDDDDDD03 = {
+						TestTargetID = DDDDDDDDDDDDDDDDDDDDDD01;
+					};
+				};
+			};
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAA11 /* Build configuration list for PBXProject "Anyfile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = BBBBBBBBBBBBBBBBBBBBBB01;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = BBBBBBBBBBBBBBBBBBBBBB02 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */,
+				DDDDDDDDDDDDDDDDDDDDDD02 /* AnyfileTests */,
+				DDDDDDDDDDDDDDDDDDDDDD03 /* AnyfileUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EEEEEEEEEEEEEEEEEEEEEE03 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE13 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE23 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		EEEEEEEEEEEEEEEEEEEEEE01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE11 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE21 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		DDDDDDDDDDDDDDDDDDDDDD11 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */;
+			targetProxy = DDDDDDDDDDDDDDDDDDDDDD21 /* PBXContainerItemProxy */;
+		};
+		DDDDDDDDDDDDDDDDDDDDDD12 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */;
+			targetProxy = DDDDDDDDDDDDDDDDDDDDDD22 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		BBBBBBBBBBBBBBBBBBBBBB11 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../src";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB12 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/../src";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB13 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = "-lz";
+				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.app;
+				PRODUCT_NAME = Anyfile;
+				SWIFT_OBJC_BRIDGING_HEADER = Anyfile/Bridge/AFEngine.h;
+			};
+			name = Debug;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB14 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = "-lz";
+				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.app;
+				PRODUCT_NAME = Anyfile;
+				SWIFT_OBJC_BRIDGING_HEADER = Anyfile/Bridge/AFEngine.h;
+			};
+			name = Release;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB15 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Anyfile.app/Contents/MacOS/Anyfile";
+			};
+			name = Debug;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB16 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Anyfile.app/Contents/MacOS/Anyfile";
+			};
+			name = Release;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB17 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_TARGET_NAME = Anyfile;
+			};
+			name = Debug;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB18 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEAD_CODE_STRIPPING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.anyfile.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_TARGET_NAME = Anyfile;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AAAAAAAAAAAAAAAAAAAAAA11 /* Build configuration list for PBXProject "Anyfile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBBBBBBBBBBBBBBBBBBBB11 /* Debug */,
+				BBBBBBBBBBBBBBBBBBBBBB12 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AAAAAAAAAAAAAAAAAAAAAA12 /* Build configuration list for PBXNativeTarget "Anyfile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBBBBBBBBBBBBBBBBBBBB13 /* Debug */,
+				BBBBBBBBBBBBBBBBBBBBBB14 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AAAAAAAAAAAAAAAAAAAAAA13 /* Build configuration list for PBXNativeTarget "AnyfileTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBBBBBBBBBBBBBBBBBBBB15 /* Debug */,
+				BBBBBBBBBBBBBBBBBBBBBB16 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AAAAAAAAAAAAAAAAAAAAAA14 /* Build configuration list for PBXNativeTarget "AnyfileUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBBBBBBBBBBBBBBBBBBBB17 /* Debug */,
+				BBBBBBBBBBBBBBBBBBBBBB18 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AAAAAAAAAAAAAAAAAAAAAA01 /* Project object */;
+}
