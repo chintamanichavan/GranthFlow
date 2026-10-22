@@ -21,6 +21,7 @@ struct ContentView: View {
             pane
         }
         .frame(minWidth: 640, minHeight: 480)
+        .background(Color(nsColor: ground))
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 if let panel = activePanel {
@@ -58,6 +59,11 @@ struct ContentView: View {
         case "text": TextPane(text: $document.text, jump: jump)
         default: HexPane(document: document, jump: jump)
         }
+    }
+
+    /// What shows behind the bar: paper for things you read, the system's grey around PDF pages.
+    private var ground: NSColor {
+        document.kind == "pdf" ? .underPageBackgroundColor : Theme.paper.window
     }
 
     private var activePanel: AnyView? {

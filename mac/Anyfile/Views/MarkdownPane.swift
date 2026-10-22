@@ -29,10 +29,15 @@ struct MarkdownPane: View {
                                     .id(section.line)
                             }
                         }
-                        .padding(16)
+                        .frame(maxWidth: ReadingStyle.measure)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 40)
+                        .frame(maxWidth: .infinity)
                         .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("markdownPreview")
                     }
+                    .background(Color(nsColor: Theme.paper.window))
+                    .foregroundStyle(Color(nsColor: Theme.paper.label))
                     .onChange(of: jump) { _, jump in
                         if let jump { withAnimation { proxy.scrollTo(jump.target, anchor: .top) } }
                     }
@@ -46,6 +51,9 @@ struct MarkdownPane: View {
 
 enum MarkdownRenderer {
     /// Headings get size and weight; everything else gets inline styling from Foundation's parser.
+    /// Reading type, as in EPUB chapters.
+    static let body = Font.system(size: ReadingStyle.bodySize, design: .serif)
+
     static func render(_ source: String) -> AttributedString {
         var out = AttributedString()
         var inFence = false
@@ -58,16 +66,18 @@ enum MarkdownRenderer {
                 continue
             } else if inFence {
                 piece = AttributedString(line)
-                piece.font = .system(.body, design: .monospaced)
-                piece.foregroundColor = .secondary
+                piece.font = .system(size: 13, design: .monospaced)
+                piece.foregroundColor = Color(nsColor: Theme.paper.secondary)
             } else if let level = headingLevel(trimmed) {
                 let text = trimmed.drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces)
                 piece = AttributedString(text)
-                piece.font = .system(size: [26, 21, 18, 16, 14, 13][level - 1], weight: .semibold)
+                piece.font = .system(size: [30, 23, 19, 17, 15, 14][level - 1], weight: .semibold, design: .serif)
             } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") {
                 piece = AttributedString("  •  ") + inline(String(trimmed.dropFirst(2)))
+                piece.font = body          // bold, italic and code come from the inline intents
             } else {
                 piece = inline(line)
+                piece.font = body          // bold, italic and code come from the inline intents
             }
             out += piece
             out += AttributedString("\n")

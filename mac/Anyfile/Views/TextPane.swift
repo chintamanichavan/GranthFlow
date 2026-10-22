@@ -1,4 +1,4 @@
-// Editable plain text on top of NSTextView; the document bytes follow every keystroke.
+// Editable plain text on paper, in SF Mono; the document bytes follow every keystroke.
 import SwiftUI
 import AppKit
 
@@ -11,7 +11,12 @@ struct TextPane: NSViewRepresentable {
         let scroll = NSTextView.scrollableTextView()
         let tv = scroll.documentView as! NSTextView
         tv.isRichText = false
-        tv.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        tv.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        tv.textColor = Theme.paper.label
+        tv.backgroundColor = Theme.paper.window
+        tv.insertionPointColor = Theme.paper.accent
+        tv.textContainerInset = NSSize(width: 28, height: 24)
+        scroll.backgroundColor = Theme.paper.window
         tv.isAutomaticQuoteSubstitutionEnabled = false
         tv.isAutomaticDashSubstitutionEnabled = false
         tv.isAutomaticTextReplacementEnabled = false
