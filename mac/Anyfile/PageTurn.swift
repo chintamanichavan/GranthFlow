@@ -79,8 +79,12 @@ final class PageTurnView: NSView {
     var commit: ((Int) -> Void)?
 
     private let renderer = PageRenderer()
-    private let metal = CAMetalLayer()
-    private let fade = CALayer()
+    /// The turn is drawn in views of its own placed above the scroll view. Layers added straight to
+    /// this view's layer were put beneath the scroll view by AppKit, so turns played out of sight.
+    private let metalView = TurnLayerView(layer: CAMetalLayer())
+    private let fadeView = TurnLayerView(layer: CALayer())
+    private var metal: CAMetalLayer { metalView.layer as! CAMetalLayer }
+    private var fade: CALayer { fadeView.layer! }
     private let context = CIContext(options: [.cacheIntermediates: false])
     private var old: CGImage?, new: CGImage?
     private var forward = true
@@ -100,9 +104,11 @@ final class PageTurnView: NSView {
         scroll.autoresizingMask = [.width, .height]
         addSubview(scroll)
         (scroll as? PageScrollView)?.turner = self
-        for l in [metal, fade] as [CALayer] {
-            l.isHidden = true
-            layer?.addSublayer(l)
+        for v in [metalView, fadeView] {
+            v.frame = bounds
+            v.autoresizingMask = [.width, .height]
+            v.isHidden = true
+            addSubview(v, positioned: .above, relativeTo: scroll)
         }
         metal.device = renderer?.device
         metal.pixelFormat = PageRenderer.pixelFormat
@@ -114,7 +120,10 @@ final class PageTurnView: NSView {
     required init?(coder: NSCoder) { fatalError("not used") }
 
     /// True while a turn is on screen, whether played or held under the fingers.
-    var isBusy: Bool { !(metal.isHidden && fade.isHidden) }
+    var isBusy: Bool { !(metalView.isHidden && fadeView.isHidden) }
+
+    /// The view the turn is being drawn in, for tests to check it is on top. Nil when no turn is showing.
+    var turnView: NSView? { [metalView, fadeView].first { !$0.isHidden } }
 
     /// What the page looks like now, at screen resolution.
     func snapshot() -> CGImage? {
@@ -144,7 +153,7 @@ final class PageTurnView: NSView {
         }
         swipe?.move(by: fingerDX)
         guard let s = swipe, let step = s.step else { return }
-        if metal.isHidden && fade.isHidden {
+        if !isBusy {
             // The direction is decided: picture both pages, or refuse when there is no page that way.
             guard let oldPage = snapshot(), let newPage = preview?(step) else { swipeRefused = true; swipe = nil; return }
             show(old: oldPage, new: newPage, forward: step > 0)
@@ -175,21 +184,21 @@ final class PageTurnView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         let useMetal = renderer != nil && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        for l in [metal, fade] as [CALayer] { l.frame = bounds; l.contentsScale = scale }
+        for v in [metalView, fadeView] { v.frame = bounds; v.layer?.contentsScale = scale }
         metal.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
-        metal.isHidden = !useMetal
-        fade.isHidden = useMetal
+        metalView.isHidden = !useMetal
+        fadeView.isHidden = useMetal
         CATransaction.commit()
         draw(fraction: 0)
     }
 
     private func draw(fraction f: Double) {
         fraction = f
-        if !metal.isHidden, let renderer, let drawable = metal.nextDrawable(), let cb = renderer.makeCommandBuffer() {
+        if !metalView.isHidden, let renderer, let drawable = metal.nextDrawable(), let cb = renderer.makeCommandBuffer() {
             renderer.draw(progress: PageCurl.progress(fraction: f, forward: forward), into: drawable.texture, commandBuffer: cb)
             cb.present(drawable)
             cb.commit()
-        } else if !fade.isHidden, let old, let new {
+        } else if !fadeView.isHidden, let old, let new {
             let blend = CIFilter(name: "CIDissolveTransition")!
             blend.setValue(CIImage(cgImage: old), forKey: kCIInputImageKey)
             blend.setValue(CIImage(cgImage: new), forKey: kCIInputTargetImageKey)
@@ -235,13 +244,27 @@ final class PageTurnView: NSView {
         fraction = 0
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        metal.isHidden = true
-        fade.isHidden = true
+        metalView.isHidden = true
+        fadeView.isHidden = true
         fade.contents = nil
         CATransaction.commit()
     }
 
     var isTurning: Bool { link != nil }
+}
+
+/// A view that hosts one layer it owns outright, so AppKit neither draws into it nor reorders it.
+/// It lets clicks and scrolls through to the page beneath.
+final class TurnLayerView: NSView {
+    init(layer hosted: CALayer) {
+        super.init(frame: .zero)
+        layer = hosted                 // set before wantsLayer: this view hosts the layer rather than being backed by it
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 /// The reading view's scroll view. Up and down scroll as usual; a two-finger swipe left or right

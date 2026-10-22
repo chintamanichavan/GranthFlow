@@ -74,6 +74,24 @@ final class PageTurnTests: XCTestCase {
         return (turner, window)
     }
 
+    /// The turn must be drawn above the page. It once played beneath the scroll view, out of sight,
+    /// while every other test passed.
+    func testTheTurnIsDrawnAboveThePage() throws {
+        let (t, window) = turner()
+        let old = try XCTUnwrap(t.snapshot())
+        (t.scroll.documentView as? NSTextView)?.string = "The Carpet-Bag"
+        t.turn(from: old, forward: true)
+        t.display()
+        let shown = try XCTUnwrap(t.turnView)
+        XCTAssertTrue(t.subviews.last === shown, "the turn is not the topmost view")
+        let scrollLayer = try XCTUnwrap(t.scroll.layer), turnLayer = try XCTUnwrap(shown.layer)
+        let order = t.layer?.sublayers ?? []
+        let scrollAt = try XCTUnwrap(order.firstIndex { $0 === scrollLayer }), turnAt = try XCTUnwrap(order.firstIndex { $0 === turnLayer })
+        XCTAssertGreaterThan(turnAt, scrollAt, "the turn's layer is beneath the page's")
+        XCTAssertNil(shown.hitTest(NSPoint(x: 10, y: 10)))                  // clicks go through to the page
+        _ = window
+    }
+
     /// The turn plays over the page and then gets out of the way.
     func testAPlayedTurnClearsAfterwards() async throws {
         let (t, window) = turner()
