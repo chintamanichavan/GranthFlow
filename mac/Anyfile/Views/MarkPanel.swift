@@ -9,6 +9,8 @@ struct MarkPanel: View {
     let remove: (Mark) -> Void
     var setNote: (Mark, String) -> Void = { _, _ in }
     var setColour: (Mark, MarkColour) -> Void = { _, _ in }
+    /// Saves this file's marks as Markdown; nil hides the button.
+    var export: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -17,6 +19,11 @@ struct MarkPanel: View {
                 Spacer()
                 Text(status).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     .accessibilityIdentifier("markStatus")
+                if let export, !marks.isEmpty {
+                    Button("Export…", action: export)
+                        .help("Save these marks and notes as a Markdown file")
+                        .accessibilityIdentifier("exportMarks")
+                }
             }
             if marks.isEmpty {
                 Text("Nothing marked in this file yet.").foregroundStyle(.secondary)

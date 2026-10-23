@@ -204,6 +204,12 @@ private struct ShelfItem: View {
         .contextMenu {
             Button("Open") { open() }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([entry.url]) }
+            let marks = MarkStore.shared.marks(for: entry.url)
+            if !marks.isEmpty {
+                Button("Export Marks…") {
+                    MarkExport.save(title: face?.title ?? Cover.stem(entry.name), author: face?.author ?? "", marks: marks)
+                }
+            }
             Divider()
             Button("Remove from Library") { forget() }
         }

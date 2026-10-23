@@ -138,7 +138,7 @@ struct ContentView: View {
         case .mark:
             AnyView(MarkPanel(marks: marks, status: markStatus, choose: { go(to: $0.target, query: $0.quote) },
                               remove: { markStore.remove($0) }, setNote: { markStore.setNote($1, for: $0) },
-                              setColour: { markStore.setColour($1, for: $0) }))
+                              setColour: { markStore.setColour($1, for: $0) }, export: exportMarks))
         case .find:
             AnyView(FindPanel(document: document) { hit, query in go(to: hit.target, query: query) }.id("find-\(document.kind)"))
         default:
@@ -179,6 +179,11 @@ struct ContentView: View {
         if let mark = markStore.add(selection, in: fileURL, kind: document.kind) {
             markStatus = "Marked · \(mark.place)"
         }
+    }
+
+    private func exportMarks() {
+        let heading = MarkExport.heading(for: document.data, name: document.name, kind: document.kind)
+        MarkExport.save(title: heading.title, author: heading.author, marks: marks)
     }
 
     /// A mark or search result chosen in the library goes to its place once this window shows that file.
