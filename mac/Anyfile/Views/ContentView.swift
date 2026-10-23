@@ -12,6 +12,8 @@ struct ContentView: View {
     @State private var chapter: Int?            // EPUB shows one chapter at a time
     @State private var selection: Selection?
     @State private var markStatus = ""
+    /// Where reading stopped inside the saved chapter, applied when that chapter first appears.
+    @State private var resume: (chapter: Int, anchor: Int)?
     private let markStore = MarkStore.shared
 
     /// The place reading stopped is restored here, before any pane appears: the EPUB pane picks
@@ -21,7 +23,9 @@ struct ContentView: View {
         self.fileURL = fileURL
         guard let fileURL, let position = Library.shared.entry(for: fileURL)?.position else { return }
         switch document.wrappedValue.kind {
-        case "epub": _chapter = State(initialValue: position)
+        case "epub":
+            _chapter = State(initialValue: position)
+            if let anchor = Library.shared.entry(for: fileURL)?.anchor { _resume = State(initialValue: (position, anchor)) }
         case "pdf": _jump = State(initialValue: Jump(target: position, serial: 1))
         default: break
         }
@@ -84,7 +88,9 @@ struct ContentView: View {
             if let fileURL { Library.shared.recordPosition(fileURL, position: page, total: count) }
         }, marks: marks, onSelect: { selection = $0 })
         case "epub": EpubPane(document: document, chapter: $chapter, find: jump,
-                              marks: marks.filter { $0.target == chapter }.map(\.quote), onSelect: { selection = $0 })
+                              marks: marks.filter { $0.target == chapter }.map(\.quote), onSelect: { selection = $0 },
+                              resume: resume?.chapter == chapter ? resume?.anchor : nil,
+                              onAnchor: { anchor in if let fileURL { Library.shared.recordAnchor(fileURL, anchor: anchor) } })
         case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
         case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
         default: HexPane(document: document, jump: jump)

@@ -26,6 +26,9 @@ struct EpubPane: View {
     var find: Jump? = nil
     var marks: [String] = []
     var onSelect: (Selection?) -> Void = { _ in }
+    /// Where to resume in the chapter on show: the first character that was on screen.
+    var resume: Int? = nil
+    var onAnchor: (Int) -> Void = { _ in }
     @State private var text = ""
     @State private var title = ""
     @State private var loaded: Int?                 // the chapter whose text is in `text`
@@ -37,7 +40,7 @@ struct EpubPane: View {
                         guard let quote, let loaded else { return onSelect(nil) }
                         onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
                     },
-                    onTurn: turn(by:), peek: peek(_:))
+                    onTurn: turn(by:), peek: peek(_:), resume: resume, onAnchor: onAnchor)
             .frame(minWidth: 320)
             .overlay(alignment: .leading) { TurnArrow(direction: -1, enabled: neighbour(-1) != nil) { turn(by: -1) } }
             .overlay(alignment: .trailing) { TurnArrow(direction: 1, enabled: neighbour(1) != nil) { turn(by: 1) } }
@@ -97,6 +100,10 @@ struct ReadingText: NSViewRepresentable {
     var onTurn: (Int) -> Void = { _ in }
     /// The neighbouring chapter (+1, -1), or nil when there is none that way.
     var peek: (Int) -> Page? = { _ in nil }
+    /// A character to bring to the top once, when this chapter's text first appears.
+    var resume: Int? = nil
+    /// The first character on screen, reported once scrolling has rested.
+    var onAnchor: (Int) -> Void = { _ in }
 
     struct Page {
         let text: String
@@ -107,6 +114,7 @@ struct ReadingText: NSViewRepresentable {
     func makeNSView(context: Context) -> PageTurnView {
         let turner = PageTurnView(scroll: Self.makePage())
         (turner.scroll.documentView as? PaperTextView)?.delegate = context.coordinator
+        context.coordinator.watchScrolling(turner.scroll)
         return turner
     }
 
@@ -167,11 +175,19 @@ struct ReadingText: NSViewRepresentable {
             let old = turning ? turner.snapshot() : nil
             context.coordinator.shown = shown
             tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title))
-            tv.scrollToBeginningOfDocument(nil)
+            if let resume, !context.coordinator.resumed, number != nil, !text.isEmpty {
+                context.coordinator.resumed = true                    // only the first time this chapter appears
+                ReadingPlace.scroll(tv, toCharacter: resume)
+                // Again once the window has its final width: lines re-wrap, and the place must stay put.
+                DispatchQueue.main.async { [weak tv] in if let tv { ReadingPlace.scroll(tv, toCharacter: resume) } }
+            } else {
+                tv.scrollToBeginningOfDocument(nil)
+            }
             context.coordinator.lastMarks = nil
             if let old, let previous, let number { turner.turn(from: old, forward: number > previous) }
         }
         context.coordinator.onSelect = onSelect
+        context.coordinator.onAnchor = onAnchor
         if marks != context.coordinator.lastMarks {
             context.coordinator.lastMarks = marks
             Highlights.apply(marks, to: tv)
@@ -195,6 +211,28 @@ struct ReadingText: NSViewRepresentable {
         var shown: [String] = []
         var lastMarks: [String]?
         var onSelect: (String?) -> Void = { _ in }
+        var onAnchor: (Int) -> Void = { _ in }
+        var resumed = false
+        private var pending: DispatchWorkItem?
+        private var token: NSObjectProtocol?
+
+        /// Reports the reading place once scrolling has rested, not on every scroll event.
+        func watchScrolling(_ scroll: NSScrollView) {
+            scroll.contentView.postsBoundsChangedNotifications = true
+            token = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: scroll.contentView,
+                                                           queue: .main) { [weak self, weak scroll] _ in
+                guard let self, let tv = scroll?.documentView as? NSTextView else { return }
+                self.pending?.cancel()
+                let work = DispatchWorkItem { [weak self, weak tv] in
+                    guard let self, let tv else { return }
+                    self.onAnchor(ReadingPlace.topCharacter(in: tv))
+                }
+                self.pending = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+            }
+        }
+
+        deinit { if let token { NotificationCenter.default.removeObserver(token) } }
 
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }

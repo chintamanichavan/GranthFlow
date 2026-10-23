@@ -10,6 +10,9 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     /// Where reading stopped: a chapter number for EPUB, a page index for PDF.
     var position: Int?
     var total: Int?
+    /// Where in that chapter: the first character on screen, so reading resumes at the same
+    /// sentence even after the text size or window width changes. Nil means the chapter's start.
+    var anchor: Int?
 
     var id: String { path }
     var url: URL { URL(fileURLWithPath: path) }
@@ -82,8 +85,16 @@ final class Library {
     func recordPosition(_ url: URL, position: Int, total: Int) {
         guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }),
               entries[i].position != position || entries[i].total != total else { return }
+        if entries[i].position != position { entries[i].anchor = nil }     // a new chapter starts at its top
         entries[i].position = position
         entries[i].total = total
+        save()
+    }
+
+    /// Records the first character on screen in the chapter being read.
+    func recordAnchor(_ url: URL, anchor: Int) {
+        guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }), entries[i].anchor != anchor else { return }
+        entries[i].anchor = anchor
         save()
     }
 

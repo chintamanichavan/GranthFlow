@@ -52,6 +52,30 @@ enum ReadingStyle {
     }
 }
 
+/// Where reading is in a text view, as a character, and back again.
+enum ReadingPlace {
+    /// The first character at the top of the visible part of the text.
+    static func topCharacter(in tv: NSTextView) -> Int {
+        guard let lm = tv.layoutManager, let tc = tv.textContainer, tv.textStorage?.length ?? 0 > 0 else { return 0 }
+        // A point just inside the top-left of what is visible, in the text container's coordinates.
+        let point = NSPoint(x: 2, y: tv.visibleRect.minY - tv.textContainerOrigin.y + 2)
+        let glyph = lm.glyphIndex(for: point, in: tc)
+        return lm.characterIndexForGlyph(at: glyph)
+    }
+
+    /// Scrolls so the line holding `character` is at the top.
+    static func scroll(_ tv: NSTextView, toCharacter character: Int) {
+        guard let lm = tv.layoutManager else { return }
+        let length = tv.textStorage?.length ?? 0
+        guard length > 0 else { return }
+        let c = min(max(character, 0), length - 1)
+        lm.ensureLayout(forCharacterRange: NSRange(location: 0, length: c + 1))
+        let glyphs = lm.glyphRange(forCharacterRange: NSRange(location: c, length: 1), actualCharacterRange: nil)
+        let line = lm.lineFragmentRect(forGlyphAt: glyphs.location, effectiveRange: nil)
+        tv.scroll(NSPoint(x: 0, y: max(0, line.minY + tv.textContainerOrigin.y - 2)))
+    }
+}
+
 /// A text view that keeps its column centred and no wider than the reading measure, and turns
 /// pages from the keyboard: the arrow keys, or Space, which scrolls and turns once the end is in view.
 final class PaperTextView: NSTextView {
