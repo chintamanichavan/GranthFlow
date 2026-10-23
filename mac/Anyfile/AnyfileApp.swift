@@ -27,6 +27,11 @@ struct AnyfileApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
+        // Tests must not sweep the reader's folders into a library: UI tests use one of their own, and
+        // unit tests run inside the app itself (a watched Downloads folder would also stall them on a
+        // permission prompt).
+        let testing = args.contains("--library") || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        if !testing { WatchedFolders.shared.start() }
         guard let i = args.firstIndex(of: "--open"), i + 1 < args.count else { return }
         let url = URL(fileURLWithPath: args[i + 1])
         NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in

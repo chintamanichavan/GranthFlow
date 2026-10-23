@@ -8,6 +8,7 @@ struct LibraryView: View {
     @State private var section: LibrarySection? = .library
     @State private var faces: [String: ShelfFace] = [:]
     private let markStore = MarkStore.shared
+    private let watched = WatchedFolders.shared
     @State private var query = ""
     @State private var results: [SearchResult] = []
     @State private var searched = ""
@@ -27,6 +28,20 @@ struct LibraryView: View {
                         .badge(s == .marks ? markStore.marks.count : s.entries(in: library).count)
                         .tag(s)
                         .accessibilityIdentifier("section.\(s.rawValue)")
+                }
+                if !watched.paths.isEmpty {
+                    Section("Watched folders") {
+                        ForEach(watched.paths, id: \.self) { path in
+                            Label((path as NSString).lastPathComponent, systemImage: "folder")
+                                .badge(watched.count(in: path))
+                                .help(path)
+                                .contextMenu {
+                                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
+                                    Button("Stop Watching") { watched.remove(path) }
+                                }
+                                .accessibilityIdentifier("watched.\((path as NSString).lastPathComponent)")
+                        }
+                    }
                 }
             }
             .navigationSplitViewColumnWidth(min: 190, ideal: 220)
@@ -78,6 +93,11 @@ struct LibraryView: View {
             .searchable(text: $query, placement: .toolbar, prompt: "Search every file")
             .task(id: query) { await search() }
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: watchPanel) { Label("Watch a Folder", systemImage: "folder.badge.plus") }
+                        .help("Watch a folder: its files join the library by themselves")
+                        .accessibilityIdentifier("watchFolder")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: openPanel) { Label("Open", systemImage: "plus") }
                         .help("Open a file")
@@ -131,6 +151,17 @@ struct LibraryView: View {
 
     private func open(_ mark: Mark) {
         Navigator.shared.open(URL(fileURLWithPath: mark.path), at: mark.target, selecting: mark.quote)
+    }
+
+    private func watchPanel() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Watch"
+        panel.message = "Files in these folders join your library, now and whenever new ones arrive."
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls { watched.add(url) }
     }
 
     private func openPanel() { NSDocumentController.shared.openDocument(nil) }

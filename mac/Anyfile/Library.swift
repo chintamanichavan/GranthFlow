@@ -17,6 +17,8 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     var wordsLeft: Int?
     /// How this book is set for reading; nil until the reader changes it.
     var settings: ReadingSettings?
+    /// On the shelf, from a drop or a watched folder, but not opened yet.
+    var unopened: Bool?
 
     var id: String { path }
     var url: URL { URL(fileURLWithPath: path) }
@@ -58,7 +60,7 @@ final class Library {
     @ObservationIgnored private var shelf: [LibraryEntry]?
     private let file: URL
     /// Room for a real library, dropped or watched folders included; the oldest are forgotten first.
-    static let defaultLimit = 5000
+    nonisolated static let defaultLimit = 5000
     let limit: Int
 
     init(file: URL, limit: Int = Library.defaultLimit) {
@@ -91,7 +93,24 @@ final class Library {
 
     func recordOpened(_ url: URL, kind: String, at date: Date = Date()) {
         shelve(url, kind: kind, at: date)
+        if let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }) { entries[i].unopened = nil }
         save()
+    }
+
+    /// Files found in a watched folder: only ones not on the shelf yet are added, dated by the file
+    /// itself so an old folder does not push recent reading down. Ones already there are left alone.
+    @discardableResult
+    func addFromFolder(_ found: [(url: URL, kind: String)]) -> Int {
+        let known = Set(entries.map(\.path))
+        let fresh = found.filter { !known.contains($0.url.standardizedFileURL.path) }
+        guard !fresh.isEmpty else { return 0 }
+        for (url, kind) in fresh {
+            let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+            entries.append(LibraryEntry(path: url.standardizedFileURL.path, kind: kind, opened: date, unopened: true))
+        }
+        if entries.count > limit { entries = Array(entries.sorted { $0.opened > $1.opened }.prefix(limit)) }
+        save()
+        return fresh.count
     }
 
     /// Puts scanned files on the shelf as if just opened; ones already there move to the front.
@@ -109,7 +128,7 @@ final class Library {
                 entries[i].kind = kind
             } else {
                 index[path] = entries.count
-                entries.append(LibraryEntry(path: path, kind: kind, opened: date))
+                entries.append(LibraryEntry(path: path, kind: kind, opened: date, unopened: true))
                 added += 1
             }
         }
