@@ -43,6 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// A mark chosen in Spotlight: open its file at the passage.
+    func application(_ application: NSApplication, continue activity: NSUserActivity,
+                     restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
+        guard let mark = SpotlightMarks.mark(for: activity, in: MarkStore.shared.marks) else { return false }
+        Navigator.shared.open(URL(fileURLWithPath: mark.path), at: mark.target, selecting: mark.quote)
+        return true
+    }
+
     /// The library is the starting window, so no empty document is made at launch.
     func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
 }

@@ -83,12 +83,20 @@ final class MarkStore {
     static let shared: MarkStore = {
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "--marks"), i + 1 < args.count { return MarkStore(file: URL(fileURLWithPath: args[i + 1])) }
-        return MarkStore(file: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let store = MarkStore(file: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Anyfile/marks.json"))
+        // Only the reader's own marks go to Spotlight, and never from a test run.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            store.onSave = { SpotlightMarks.reindex($0) }
+            SpotlightMarks.reindex(store.marks)
+        }
+        return store
     }()
 
     private(set) var marks: [Mark]
     private let file: URL
+    /// Called after each save; the reader's own store keeps Spotlight up to date with it.
+    @ObservationIgnored var onSave: (([Mark]) -> Void)?
     /// A mark is a passage, not a chapter; longer selections are cut here.
     static let longest = 1000
 
@@ -155,6 +163,7 @@ final class MarkStore {
         do {
             try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
             try e.encode(marks.sorted { $0.created < $1.created }).write(to: file, options: .atomic)
+            onSave?(marks)
         } catch {
             NSLog("marks not saved: %@", error.localizedDescription)
         }
