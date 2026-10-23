@@ -57,7 +57,7 @@ struct MarkdownPane: View {
 enum MarkdownRenderer {
     /// Headings get size and weight; everything else gets inline styling from Foundation's parser.
     /// Reading type, as in EPUB chapters.
-    static let body = Font.system(size: ReadingStyle.bodySize, design: .serif)
+    static let body = Font(Theme.readingFont(size: ReadingStyle.bodySize) as CTFont)
 
     static func render(_ source: String) -> AttributedString {
         var out = AttributedString()
@@ -76,7 +76,7 @@ enum MarkdownRenderer {
             } else if let level = headingLevel(trimmed) {
                 let text = trimmed.drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces)
                 piece = AttributedString(text)
-                piece.font = .system(size: [30, 23, 19, 17, 15, 14][level - 1], weight: .semibold, design: .serif)
+                piece.font = Font(Theme.readingFont(size: [30, 23, 19, 17, 15, 14][level - 1], weight: .semibold) as CTFont)
             } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") {
                 piece = AttributedString("  •  ") + inline(String(trimmed.dropFirst(2)))
                 piece.font = body          // bold, italic and code come from the inline intents

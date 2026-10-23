@@ -23,9 +23,35 @@ enum Theme {
     /// A byte map's colours, from empty to dense.
     static let bytes = ["#0E1330", "#1D2C73", "#3B49DF", "#27B5A6", "#F2C14E", "#F26A4B", "#F5F4F0"].map { NSColor(hex: $0)! }
 
-    static func readingFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+    /// New York for Latin text, falling back to ITF Devanagari, a book face, for Devanagari: on its
+    /// own New York falls back to the interface's sans serif. Marathi text gets ITF Devanagari
+    /// Marathi, which draws letters such as ल and श in their Marathi forms.
+    static func readingFont(size: CGFloat, weight: NSFont.Weight = .regular, language: String? = nil) -> NSFont {
         let base = NSFont.systemFont(ofSize: size, weight: weight)
-        return base.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size) } ?? base
+        guard let serif = base.fontDescriptor.withDesign(.serif) else { return base }
+        // Core Text draws a fallback at the main font's size; ReadingStyle sizes Devanagari runs itself.
+        let fallback = NSFontDescriptor(name: devanagariFace(weight: weight, language: language), size: size)
+        return NSFont(descriptor: serif.addingAttributes([.cascadeList: [fallback]]), size: size) ?? base
+    }
+
+    /// Devanagari is drawn smaller than Latin at the same point size; this makes the two look one size on a line.
+    static let devanagariScale: CGFloat = 1.05       // 1.0 looked small beside New York, 1.12 large
+
+    static func devanagariFont(size: CGFloat, weight: NSFont.Weight, language: String?) -> NSFont {
+        NSFont(name: devanagariFace(weight: weight, language: language), size: size * devanagariScale)
+            ?? NSFont.systemFont(ofSize: size * devanagariScale, weight: weight)
+    }
+
+    static func devanagariFace(weight: NSFont.Weight, language: String?) -> String {
+        let family = isMarathi(language) ? "ITFDevanagariMarathi" : "ITFDevanagari"
+        let face = weight >= .bold ? "Bold" : weight >= .medium ? "Medium" : "Book"
+        return "\(family)-\(face)"
+    }
+
+    /// The book's own language when it gives one, otherwise whether Marathi is among the Mac's languages.
+    static func isMarathi(_ language: String?, preferred: [String] = Locale.preferredLanguages) -> Bool {
+        if let language, !language.isEmpty { return language.lowercased().hasPrefix("mr") }
+        return preferred.contains { $0.lowercased().hasPrefix("mr") }
     }
 
     /// The colour darkened, keeping its hue, until white text on it has at least the WCAG contrast

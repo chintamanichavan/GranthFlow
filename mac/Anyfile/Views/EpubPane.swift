@@ -34,6 +34,7 @@ struct EpubPane: View {
     @State private var title = ""
     @State private var loaded: Int?                 // the chapter whose text is in `text`
     @State private var titles: [Int: String] = [:]
+    @State private var language: String?                 // from the book's metadata, for the Devanagari face
 
     var body: some View {
         ReadingText(text: text, number: loaded, title: title, find: find?.target == loaded ? find : nil, marks: marks,
@@ -41,7 +42,7 @@ struct EpubPane: View {
                         guard let quote, let loaded else { return onSelect(nil) }
                         onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
                     },
-                    onTurn: turn(by:), peek: peek(_:), resume: resume, onPlace: onPlace)
+                    onTurn: turn(by:), peek: peek(_:), resume: resume, onPlace: onPlace, language: language)
             .frame(minWidth: 320)
             .overlay(alignment: .leading) { TurnArrow(direction: -1, enabled: neighbour(-1) != nil) { turn(by: -1) } }
             .overlay(alignment: .trailing) { TurnArrow(direction: 1, enabled: neighbour(1) != nil) { turn(by: 1) } }
@@ -68,13 +69,14 @@ struct EpubPane: View {
         guard let number = neighbour(step) else { return nil }
         let r = Engine.run("text", args: [String(number)], on: document.data, name: document.name, kind: document.kind)
         guard r.succeeded else { return nil }
-        return ReadingText.Page(text: r.output, number: number, title: titles[number] ?? "")
+        return ReadingText.Page(text: r.output, number: number, title: titles[number] ?? "", language: language)
     }
 
     private func reload() {
         let r = Engine.run("chapters", args: [], on: document.data, name: document.name, kind: document.kind)
         let chapters = EpubChapter.parse(r.output)
         titles = Dictionary(chapters.map { ($0.number, $0.title) }, uniquingKeysWith: { a, _ in a })
+        language = Cover.field("language", in: Engine.run("meta", args: [], on: document.data, name: document.name, kind: document.kind).output)
         if chapters.isEmpty { text = r.errorText.isEmpty ? "(this book lists no chapters)" : r.errorText }
         if chapter == nil || !chapters.contains(where: { $0.number == chapter }) { chapter = chapters.first?.number }
         loadText()
@@ -105,11 +107,13 @@ struct ReadingText: NSViewRepresentable {
     var resume: Int? = nil
     /// The first character on screen and the words after it, reported once scrolling has rested.
     var onPlace: (Int, Int) -> Void = { _, _ in }
+    var language: String? = nil
 
     struct Page {
         let text: String
         let number: Int
         let title: String
+        var language: String? = nil
     }
 
     func makeNSView(context: Context) -> PageTurnView {
@@ -149,7 +153,7 @@ struct ReadingText: NSViewRepresentable {
         scroll.frame = NSRect(origin: .zero, size: size)
         let tv = scroll.documentView as! NSTextView
         tv.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height))
-        tv.textStorage?.setAttributedString(ReadingStyle.chapter(page.text, number: page.number, title: page.title))
+        tv.textStorage?.setAttributedString(ReadingStyle.chapter(page.text, number: page.number, title: page.title, language: page.language))
         tv.sizeToFit()
         scroll.layoutSubtreeIfNeeded()
         tv.scrollToBeginningOfDocument(nil)
@@ -167,7 +171,7 @@ struct ReadingText: NSViewRepresentable {
             return ReadingText.picture(page, size: turner.bounds.size)
         }
         turner.commit = onTurn
-        let shown = [String(number ?? 0), title, text]
+        let shown = [String(number ?? 0), title, text, language ?? ""]
         if context.coordinator.shown != shown {
             // A new chapter number is a page turn: picture the old page before the text changes.
             let previous = Int(context.coordinator.shown.first ?? "")
@@ -175,7 +179,7 @@ struct ReadingText: NSViewRepresentable {
             let turning = previous != nil && previous != 0 && number != nil && previous != number && turner.window != nil && !turner.isBusy
             let old = turning ? turner.snapshot() : nil
             context.coordinator.shown = shown
-            tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title))
+            tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title, language: language))
             if let resume, !context.coordinator.resumed, number != nil, !text.isEmpty {
                 context.coordinator.resumed = true                    // only the first time this chapter appears
                 ReadingPlace.scroll(tv, toCharacter: resume)

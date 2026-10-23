@@ -8,7 +8,7 @@ enum ReadingStyle {
     static let bodySize: CGFloat = 17
 
     /// A chapter as it is shown: "CHAPTER n" and the title, centred, then the text.
-    static func chapter(_ text: String, number: Int?, title: String?) -> NSAttributedString {
+    static func chapter(_ text: String, number: Int?, title: String?, language: String? = nil) -> NSAttributedString {
         let out = NSMutableAttributedString()
         let title = title?.trimmingCharacters(in: .whitespaces) ?? ""
         if let number {
@@ -16,20 +16,36 @@ enum ReadingStyle {
                             align: .center, kern: 1.6, after: title.isEmpty ? 28 : 8))
         }
         if !title.isEmpty {
-            out.append(line(title, font: Theme.readingFont(size: 30), color: Theme.paper.label, align: .center, after: 30))
+            out.append(line(title, font: Theme.readingFont(size: 30, language: language), color: Theme.paper.label, align: .center, after: 30))
         }
-        out.append(body(dropLeadingTitle(text, title: title)))
+        out.append(body(dropLeadingTitle(text, title: title), language: language))
+        sizeDevanagari(in: out, language: language)
         return out
     }
 
     /// Body text: serif, generous leading, a little space between paragraphs.
-    static func body(_ text: String) -> NSAttributedString {
+    static func body(_ text: String, language: String? = nil) -> NSAttributedString {
         let p = NSMutableParagraphStyle()
         p.lineHeightMultiple = 1.45
         p.paragraphSpacing = 10
-        return NSAttributedString(string: text, attributes: [
-            .font: Theme.readingFont(size: bodySize), .foregroundColor: Theme.paper.label, .paragraphStyle: p,
+        let out = NSMutableAttributedString(string: text, attributes: [
+            .font: Theme.readingFont(size: bodySize, language: language), .foregroundColor: Theme.paper.label, .paragraphStyle: p,
         ])
+        sizeDevanagari(in: out, language: language)
+        return out
+    }
+
+    /// Gives each run of Devanagari its own book face, a little larger than the Latin around it,
+    /// at the size and weight of the text it sits in. Joiners stay inside the run, so conjuncts hold.
+    static func sizeDevanagari(in text: NSMutableAttributedString, language: String?) {
+        let ns = text.string as NSString
+        let runs = try! NSRegularExpression(pattern: "[\\u0900-\\u097F\\uA8E0-\\uA8FF\\u1CD0-\\u1CFF\\u200C\\u200D]+")
+        for match in runs.matches(in: text.string, range: NSRange(location: 0, length: ns.length)) {
+            guard let base = text.attribute(.font, at: match.range.location, effectiveRange: nil) as? NSFont else { continue }
+            let bold = base.fontDescriptor.symbolicTraits.contains(.bold)
+            text.addAttribute(.font, value: Theme.devanagariFont(size: base.pointSize, weight: bold ? .bold : .regular, language: language),
+                              range: match.range)
+        }
     }
 
     /// Chapters usually begin with their own heading; it is already shown as the title.
