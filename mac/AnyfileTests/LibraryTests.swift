@@ -39,6 +39,7 @@ final class LibraryTests: XCTestCase {
         lib.recordOpened(b, kind: "text", at: Date(timeIntervalSince1970: 3))
         lib.recordOpened(gone, kind: "text", at: Date(timeIntervalSince1970: 2))
         try! FileManager.default.removeItem(at: gone)
+        lib.checkFiles()                                                            // as the window does when it comes forward
         XCTAssertEqual(lib.recent.map(\.name), ["b.txt", "a.txt"])
         lib.recordOpened(a, kind: "text", at: Date(timeIntervalSince1970: 9))       // reopening moves it to the front
         XCTAssertEqual(lib.recent.map(\.name), ["a.txt", "b.txt"])
@@ -70,11 +71,11 @@ final class LibraryTests: XCTestCase {
     }
 
     func testOldestAreForgottenPastTheLimit() {
-        let lib = Library(file: dir.appendingPathComponent("l.json"))
-        for i in 0...Library.limit {
+        let lib = Library(file: dir.appendingPathComponent("l.json"), limit: 40)
+        for i in 0...lib.limit {
             lib.recordOpened(URL(fileURLWithPath: "/tmp/f\(i)"), kind: "text", at: Date(timeIntervalSince1970: Double(i)))
         }
-        XCTAssertEqual(lib.entries.count, Library.limit)
+        XCTAssertEqual(lib.entries.count, lib.limit)
         XCTAssertNil(lib.entry(for: URL(fileURLWithPath: "/tmp/f0")))
     }
 
@@ -93,14 +94,22 @@ final class LibraryTests: XCTestCase {
         XCTAssertEqual(KindLabel.label(kind: "binary"), "Data")
     }
 
-    /// The window reads `recent` about ten times per redraw, and each read checks every file exists.
-    func testRecentSpeedAtTheLimit() {
+    /// The window reads `recent` about ten times per redraw; a reading place saves the whole library.
+    /// Both at the full 5000 files. Prints the times.
+    func testSpeedAtTheLimit() {
         let lib = Library(file: dir.appendingPathComponent("l.json"))
-        for i in 0..<Library.limit { lib.recordOpened(file("f\(i).txt"), kind: "text", at: Date(timeIntervalSince1970: Double(i))) }
-        let start = Date()
-        for _ in 0..<10 { XCTAssertEqual(lib.recent.count, Library.limit) }
-        let seconds = Date().timeIntervalSince(start)
-        print(String(format: "recent x10 with %d files: %.4f s", Library.limit, seconds))
-        XCTAssertLessThan(seconds, 0.05)
+        let found = (0..<Library.defaultLimit).map { (url: URL(fileURLWithPath: "/tmp/book\($0).epub"), kind: "epub") }
+        lib.add(found, at: Date(timeIntervalSince1970: 0))
+        lib.checkFiles()
+        var start = Date()
+        for _ in 0..<10 { _ = lib.recent }
+        let redraw = Date().timeIntervalSince(start)
+        start = Date()
+        lib.recordPosition(URL(fileURLWithPath: "/tmp/book7.epub"), position: 3, total: 9)
+        let save = Date().timeIntervalSince(start)
+        print(String(format: "library of %d: recent x10 %.4f s, one save %.4f s", lib.entries.count, redraw, save))
+        XCTAssertLessThan(redraw, 0.05)
+        XCTAssertLessThan(save, 0.1)
     }
+
 }

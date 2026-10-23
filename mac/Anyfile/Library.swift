@@ -51,20 +51,37 @@ final class Library {
             .appendingPathComponent("Anyfile/library.json"))
     }()
 
-    private(set) var entries: [LibraryEntry]
+    private(set) var entries: [LibraryEntry] { didSet { shelf = nil } }
+    /// Files found moved or deleted at the last check.
+    private(set) var missing: Set<String> = [] { didSet { shelf = nil } }
+    /// `recent`, kept until the library changes: the window reads it many times a redraw.
+    @ObservationIgnored private var shelf: [LibraryEntry]?
     private let file: URL
-    /// Kept short so the file stays readable; the oldest are forgotten first.
-    static let limit = 200
+    /// Room for a real library, dropped or watched folders included; the oldest are forgotten first.
+    static let defaultLimit = 5000
+    let limit: Int
 
-    init(file: URL) {
+    init(file: URL, limit: Int = Library.defaultLimit) {
         self.file = file
+        self.limit = limit
         let data = try? Data(contentsOf: file)
         entries = data.flatMap { try? Self.decoder.decode([LibraryEntry].self, from: $0) } ?? []
+        checkFiles()
+    }
+
+    /// Notes which files have been moved or deleted. Run at launch and when the library comes
+    /// forward, not on every redraw: with 5000 files that was 50 000 disk checks a redraw.
+    func checkFiles() {
+        let gone = Set(entries.map(\.path).filter { !FileManager.default.fileExists(atPath: $0) })
+        if gone != missing { missing = gone }
     }
 
     /// Most recent first, leaving out files that have been moved or deleted.
     var recent: [LibraryEntry] {
-        entries.filter { FileManager.default.fileExists(atPath: $0.path) }.sorted { $0.opened > $1.opened }
+        if let shelf { return shelf }
+        let sorted = entries.filter { !missing.contains($0.path) }.sorted { $0.opened > $1.opened }
+        shelf = sorted
+        return sorted
     }
 
     /// Books and documents part-way through, most recent first.
@@ -73,17 +90,45 @@ final class Library {
     func entry(for url: URL) -> LibraryEntry? { entries.first { $0.path == url.standardizedFileURL.path } }
 
     func recordOpened(_ url: URL, kind: String, at date: Date = Date()) {
+        shelve(url, kind: kind, at: date)
+        save()
+    }
+
+    /// Puts scanned files on the shelf as if just opened; ones already there move to the front.
+    /// Saves once at the end, not once per file. Returns how many were new.
+    @discardableResult
+    func add(_ found: [(url: URL, kind: String)], at date: Date = Date()) -> Int {
+        // Files are found by path in a table, and the shelf trimmed once: 500 files took 0.47 s
+        // on the main thread when each searched the whole shelf and each trimmed it.
+        var index = Dictionary(entries.indices.map { (entries[$0].path, $0) }, uniquingKeysWith: { a, _ in a })
+        var added = 0
+        for (url, kind) in found {
+            let path = url.standardizedFileURL.path
+            if let i = index[path] {
+                entries[i].opened = date
+                entries[i].kind = kind
+            } else {
+                index[path] = entries.count
+                entries.append(LibraryEntry(path: path, kind: kind, opened: date))
+                added += 1
+            }
+        }
+        if entries.count > limit { entries = Array(entries.sorted { $0.opened > $1.opened }.prefix(limit)) }
+        if !found.isEmpty { save() }
+        return added
+    }
+
+    private func shelve(_ url: URL, kind: String, at date: Date) {
         let path = url.standardizedFileURL.path
         if let i = entries.firstIndex(where: { $0.path == path }) {
             entries[i].opened = date
             entries[i].kind = kind
         } else {
             entries.append(LibraryEntry(path: path, kind: kind, opened: date))
-            if entries.count > Self.limit {
-                entries = Array(entries.sorted { $0.opened > $1.opened }.prefix(Self.limit))
+            if entries.count > limit {
+                entries = Array(entries.sorted { $0.opened > $1.opened }.prefix(limit))
             }
         }
-        save()
     }
 
     func recordPosition(_ url: URL, position: Int, total: Int) {

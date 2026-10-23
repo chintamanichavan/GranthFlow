@@ -12,6 +12,7 @@ struct LibraryView: View {
     @State private var results: [SearchResult] = []
     @State private var searched = ""
     @State private var corpus: [Searchable] = []
+    @State private var dropping = false
 
     /// Tests pass their own library; the app uses the shared one.
     @MainActor init(library: Library? = nil) { _library = State(initialValue: library ?? .shared) }
@@ -66,6 +67,14 @@ struct LibraryView: View {
                 }
             }
             .background(Color(nsColor: Theme.library.window))
+            .dropDestination(for: URL.self) { urls, _ in
+                Task {
+                    let found = await Task.detached(priority: .userInitiated) { Adding.scan(urls) }.value
+                    library.add(found)
+                }
+                return !urls.isEmpty
+            } isTargeted: { dropping = $0 }
+            .overlay { if dropping { DropHint() } }
             .searchable(text: $query, placement: .toolbar, prompt: "Search every file")
             .task(id: query) { await search() }
             .toolbar {
@@ -79,6 +88,8 @@ struct LibraryView: View {
         .navigationTitle("Library")
         .frame(minWidth: 760, minHeight: 520)
         .task(id: library.recent.map(\.path)) { await loadFaces() }
+        .onAppear { library.checkFiles() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in library.checkFiles() }
     }
 
     /// Makes faces for files that have none yet, off the main thread, a few at a time.
@@ -228,7 +239,7 @@ private struct EmptyShelf: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
             if section == .library {
-                Text("Books, documents, notes and programs all open in one window.")
+                Text("Books, documents, notes and programs all open in one window. Or drop files here.")
                     .foregroundStyle(.tertiary)
                 Button("Open a File…", action: open).controlSize(.large).padding(.top, 6)
             }
@@ -366,5 +377,24 @@ private struct SearchResults: View {
 
     private func count(_ n: Int) -> String {
         n >= Find.limit ? "\(Find.limit)+ matches" : (n == 1 ? "1 match" : "\(n) matches")
+    }
+}
+
+/// Shown while files are dragged over the library.
+private struct DropHint: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18).fill(Color.accentColor.opacity(0.08))
+            RoundedRectangle(cornerRadius: 18).strokeBorder(Color.accentColor.opacity(0.6), style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+            VStack(spacing: 10) {
+                Image(systemName: "tray.and.arrow.down").font(.system(size: 34, weight: .light))
+                Text("Drop to add to your library").font(.title3)
+                Text("Files, or a folder of them").foregroundStyle(.secondary)
+            }
+            .foregroundStyle(Color.accentColor)
+        }
+        .padding(16)
+        .allowsHitTesting(false)
+        .accessibilityIdentifier("dropHint")
     }
 }
