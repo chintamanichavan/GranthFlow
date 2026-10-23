@@ -5,7 +5,7 @@ import Observation
 
 @MainActor @Observable
 final class Shelves {
-    static let shared = Shelves(library: .shared, defaults: .standard)
+    static let shared = Shelves(library: .shared, defaults: AppDefaults.store)
 
     private(set) var names: [String]
     private let library: Library

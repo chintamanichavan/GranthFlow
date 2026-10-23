@@ -45,6 +45,17 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     var isUnfinished: Bool { (progress ?? 1) < 1 }
 }
 
+/// Where the app keeps its preferences: shelves, watched folders, reading speed, the latest Aa choice.
+/// UI tests run with `--library`; they get a preferences file of their own, so nothing they make
+/// (a shelf, a watched folder) is left in the reader's.
+enum AppDefaults {
+    static let store: UserDefaults = {
+        guard CommandLine.arguments.contains("--library"), let suite = UserDefaults(suiteName: "local.granthflow.uitests") else { return .standard }
+        suite.removePersistentDomain(forName: "local.granthflow.uitests")         // each test run starts clean
+        return suite
+    }()
+}
+
 @MainActor @Observable
 final class Library {
     /// `--library <path>` points the app at another file, so UI tests do not write into the real library.

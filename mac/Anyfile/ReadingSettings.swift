@@ -68,11 +68,11 @@ extension Theme {
 enum ReadingDefaults {
     private static let key = "readingSettings"
 
-    static func load(_ defaults: UserDefaults = .standard) -> ReadingSettings {
+    static func load(_ defaults: UserDefaults = AppDefaults.store) -> ReadingSettings {
         defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(ReadingSettings.self, from: $0) } ?? ReadingSettings()
     }
 
-    static func save(_ settings: ReadingSettings, _ defaults: UserDefaults = .standard) {
+    static func save(_ settings: ReadingSettings, _ defaults: UserDefaults = AppDefaults.store) {
         if let data = try? JSONEncoder().encode(settings) { defaults.set(data, forKey: key) }
     }
 }

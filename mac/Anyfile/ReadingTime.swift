@@ -54,7 +54,7 @@ struct ReadingSpeed {
 /// The speed kept between launches, and the last place, so the next stretch can be measured.
 @MainActor
 final class ReadingClock {
-    static let shared = ReadingClock(defaults: .standard)
+    static let shared = ReadingClock(defaults: AppDefaults.store)
     private let defaults: UserDefaults
     private static let key = "readingWordsPerMinute"
     private var last: (book: String, chapter: Int, wordsLeft: Int, at: Date)?

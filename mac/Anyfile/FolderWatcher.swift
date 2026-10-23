@@ -38,7 +38,7 @@ final class FolderWatcher {
 /// The folders being watched, kept in UserDefaults, and the watcher over them.
 @MainActor @Observable
 final class WatchedFolders {
-    static let shared = WatchedFolders(library: .shared, defaults: .standard)
+    static let shared = WatchedFolders(library: .shared, defaults: AppDefaults.store)
 
     private(set) var paths: [String]
     private let library: Library
