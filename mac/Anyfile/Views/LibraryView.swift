@@ -3,9 +3,19 @@
 import SwiftUI
 import AppKit
 
+/// What the sidebar can show: a built-in section, one of the reader's shelves, or a watched folder.
+enum SidebarItem: Hashable {
+    case section(LibrarySection)
+    case shelf(String)
+    case folder(String)
+}
+
 struct LibraryView: View {
     @State private var library: Library
-    @State private var section: LibrarySection? = .library
+    @State private var selected: SidebarItem? = .section(.library)
+    private let shelves = Shelves.shared
+    @State private var naming: Naming?
+    @State private var name = ""
     @State private var faces: [String: ShelfFace] = [:]
     private let markStore = MarkStore.shared
     private let watched = WatchedFolders.shared
@@ -18,26 +28,81 @@ struct LibraryView: View {
     /// Tests pass their own library; the app uses the shared one.
     @MainActor init(library: Library? = nil) { _library = State(initialValue: library ?? .shared) }
 
-    private var shown: [LibraryEntry] { (section ?? .library).entries(in: library) }
+    /// Asking for a shelf's name: a new shelf, or a new name for one.
+    private enum Naming: Equatable { case new, rename(String) }
+
+    private var section: LibrarySection? {
+        if case let .section(s) = selected ?? .section(.library) { return s }
+        return nil
+    }
+
+    private var shown: [LibraryEntry] {
+        switch selected ?? .section(.library) {
+        case let .section(s): s.entries(in: library)
+        case let .shelf(name): shelves.files(on: name)
+        case let .folder(path): library.recent.filter { WatchedFolders.folder(holding: $0.path, among: [path]) != nil }
+        }
+    }
+
+    private var nameIsUsable: Bool {
+        if case let .rename(old) = naming { return shelves.available(name, except: old) != nil }
+        return shelves.available(name) != nil
+    }
+
+    private var heading: String {
+        switch selected ?? .section(.library) {
+        case .section(.library): "Recently opened"
+        case let .section(s): s.title
+        case let .shelf(name): name
+        case let .folder(path): (path as NSString).lastPathComponent
+        }
+    }
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $section) {
+            List(selection: $selected) {
                 ForEach(LibrarySection.allCases) { s in
                     Label(s.title, systemImage: s.symbol)
                         .badge(s == .marks ? markStore.marks.count : s.entries(in: library).count)
-                        .tag(s)
+                        .tag(SidebarItem.section(s))
                         .accessibilityIdentifier("section.\(s.rawValue)")
+                }
+                Section("Shelves") {
+                    ForEach(shelves.names, id: \.self) { shelf in
+                        Label(shelf, systemImage: "books.vertical")
+                            .badge(shelves.files(on: shelf).count)
+                            .tag(SidebarItem.shelf(shelf))
+                            .dropDestination(for: URL.self) { urls, _ in
+                                for url in urls { library.put(url, on: shelf) }
+                                return !urls.isEmpty
+                            }
+                            .contextMenu {
+                                Button("Rename…") { name = shelf; naming = .rename(shelf) }
+                                Button("Delete Shelf") {
+                                    if selected == .shelf(shelf) { selected = .section(.library) }
+                                    shelves.delete(shelf)
+                                }
+                            }
+                            .accessibilityIdentifier("shelf-name.\(shelf)")
+                    }
+                    Button { name = ""; naming = .new } label: { Label("New Shelf", systemImage: "plus") }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("newShelf")
                 }
                 if !watched.paths.isEmpty {
                     Section("Watched folders") {
                         ForEach(watched.paths, id: \.self) { path in
                             Label((path as NSString).lastPathComponent, systemImage: "folder")
                                 .badge(watched.count(in: path))
+                                .tag(SidebarItem.folder(path))
                                 .help(path)
                                 .contextMenu {
                                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) }
-                                    Button("Stop Watching") { watched.remove(path) }
+                                    Button("Stop Watching") {
+                                        if selected == .folder(path) { selected = .section(.library) }
+                                        watched.remove(path)
+                                    }
                                 }
                                 .accessibilityIdentifier("watched.\((path as NSString).lastPathComponent)")
                         }
@@ -61,7 +126,7 @@ struct LibraryView: View {
                     } else if shown.isEmpty {
                         EmptyShelf(section: section ?? .library, open: openPanel)
                     } else {
-                        Text(section == .library ? "Recently opened" : (section ?? .library).title)
+                        Text(heading)
                             .font(.title2.weight(.semibold))
                             .padding(.horizontal, 32)
                             .padding(.top, 28)
@@ -69,8 +134,13 @@ struct LibraryView: View {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 128, maximum: 150), spacing: 26, alignment: .top)],
                                   alignment: .leading, spacing: 30) {
                             ForEach(shown) { entry in
-                                ShelfItem(entry: entry, face: faces[entry.path], open: { open(entry) },
-                                          forget: { library.forget(entry) })
+                                ShelfItem(entry: entry, face: faces[entry.path], shelves: shelves.names, open: { open(entry) },
+                                          forget: { library.forget(entry) },
+                                          toggleShelf: { shelf in
+                                              if entry.shelves?.contains(shelf) == true { library.take(entry.url, off: shelf) }
+                                              else { library.put(entry.url, on: shelf) }
+                                          },
+                                          newShelf: { name = ""; naming = .new })
                             }
                         }
                         .padding(.horizontal, 32)
@@ -106,6 +176,22 @@ struct LibraryView: View {
             }
         }
         .navigationTitle("Library")
+        .alert(naming == .new ? "New Shelf" : "Rename Shelf", isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
+            TextField("Name", text: $name)
+            Button(naming == .new ? "Create" : "Rename") {
+                switch naming {
+                case .new: if let made = shelves.create(name) { selected = .shelf(made) }
+                case let .rename(old):
+                    let new = shelves.available(name, except: old)            // the cleaned-up name, before it is taken
+                    shelves.rename(old, to: name)
+                    if selected == .shelf(old), let new { selected = .shelf(new) }
+                case nil: break
+                }
+                naming = nil
+            }
+            .disabled(!nameIsUsable)
+            Button("Cancel", role: .cancel) { naming = nil }
+        }
         .frame(minWidth: 760, minHeight: 520)
         .task(id: library.recent.map(\.path)) { await loadFaces() }
         .onAppear { library.checkFiles() }
@@ -220,8 +306,11 @@ private struct Hero: View {
 private struct ShelfItem: View {
     let entry: LibraryEntry
     let face: ShelfFace?
+    let shelves: [String]
     let open: () -> Void
     let forget: () -> Void
+    let toggleShelf: (String) -> Void
+    let newShelf: () -> Void
 
     var body: some View {
         Button(action: open) {
@@ -243,8 +332,18 @@ private struct ShelfItem: View {
         }
         .buttonStyle(.plain)
         .help(entry.path)
+        .draggable(entry.url)                                    // onto a shelf in the sidebar
         .contextMenu {
             Button("Open") { open() }
+            Menu("Add to Shelf") {
+                ForEach(shelves, id: \.self) { shelf in
+                    Button { toggleShelf(shelf) } label: {
+                        if entry.shelves?.contains(shelf) == true { Label(shelf, systemImage: "checkmark") } else { Text(shelf) }
+                    }
+                }
+                if !shelves.isEmpty { Divider() }
+                Button("New Shelf…", action: newShelf)
+            }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([entry.url]) }
             let marks = MarkStore.shared.marks(for: entry.url)
             if !marks.isEmpty {

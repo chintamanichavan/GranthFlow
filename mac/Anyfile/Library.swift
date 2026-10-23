@@ -19,6 +19,8 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     var settings: ReadingSettings?
     /// On the shelf, from a drop or a watched folder, but not opened yet.
     var unopened: Bool?
+    /// The reader's own shelves this file is on.
+    var shelves: [String]?
 
     var id: String { path }
     var url: URL { URL(fileURLWithPath: path) }
@@ -174,6 +176,25 @@ final class Library {
     func recordSettings(_ url: URL, _ settings: ReadingSettings) {
         guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }), entries[i].settings != settings else { return }
         entries[i].settings = settings
+        save()
+    }
+
+    /// Changes one file's entry and saves, if it changed.
+    func edit(_ url: URL, _ change: (inout LibraryEntry) -> Void) {
+        guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }) else { return }
+        var e = entries[i]
+        change(&e)
+        guard e != entries[i] else { return }
+        entries[i] = e
+        save()
+    }
+
+    /// Changes every entry and saves once, if any changed.
+    func editAll(_ change: (inout LibraryEntry) -> Void) {
+        var changed = entries
+        for i in changed.indices { change(&changed[i]) }
+        guard changed != entries else { return }
+        entries = changed
         save()
     }
 

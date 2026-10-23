@@ -214,6 +214,18 @@ final class AnyfileUITests: XCTestCase {
         XCTAssertTrue(element(app, "note.Call me Ishmael.").waitForExistence(timeout: 5))
     }
 
+    func testANewShelfAppearsInTheSidebar() {
+        let app = launch(Data("alpha\n".utf8), as: "shelved.txt")
+        XCTAssertTrue(element(app, "textEditor").waitForExistence(timeout: 10))
+        app.typeKey("w", modifierFlags: .command)
+        app.typeKey("l", modifierFlags: [.command, .shift])
+        let new = element(app, "newShelf")
+        XCTAssertTrue(new.waitForExistence(timeout: 10))
+        new.click()
+        app.typeText("Reading UI test\r")
+        XCTAssertTrue(element(app, "shelf-name.Reading UI test").waitForExistence(timeout: 5))
+    }
+
     func testContentsDisabledForPlainText() {
         let app = launch(Data("alpha\n".utf8), as: "notes.txt")
         XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))
