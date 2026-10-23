@@ -226,6 +226,22 @@ final class AnyfileUITests: XCTestCase {
         XCTAssertTrue(element(app, "shelf-name.Reading UI test").waitForExistence(timeout: 5))
     }
 
+    func testSpaceOverACoverShowsQuickLook() {
+        let app = launch(Data("alpha\nbeta\n".utf8), as: "peek.txt")
+        XCTAssertTrue(element(app, "textEditor").waitForExistence(timeout: 10))
+        app.typeKey("w", modifierFlags: .command)
+        app.typeKey("l", modifierFlags: [.command, .shift])
+        let cover = element(app, "shelf.peek.txt")
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        let before = app.windows.count
+        cover.hover()
+        app.typeKey(" ", modifierFlags: [])
+        let opened = NSPredicate { _, _ in app.windows.count > before }
+        expectation(for: opened, evaluatedWith: nil)
+        waitForExpectations(timeout: 5)                                     // the Quick Look panel is a window of its own
+        app.typeKey(" ", modifierFlags: [])
+    }
+
     func testContentsDisabledForPlainText() {
         let app = launch(Data("alpha\n".utf8), as: "notes.txt")
         XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))

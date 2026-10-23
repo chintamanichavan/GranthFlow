@@ -2,6 +2,7 @@
 // through at the top. One window for every kind of file.
 import SwiftUI
 import AppKit
+import QuickLook
 
 /// What the sidebar can show: a built-in section, one of the reader's shelves, or a watched folder.
 enum SidebarItem: Hashable {
@@ -16,6 +17,9 @@ struct LibraryView: View {
     private let shelves = Shelves.shared
     @State private var naming: Naming?
     @AppStorage("shelfOrder", store: AppDefaults.store) private var order = ShelfOrder.lastOpened
+    /// The cover under the pointer, for Space to preview, as in Finder.
+    @State private var hovered: URL?
+    @State private var preview: URL?
     @State private var name = ""
     @State private var faces: [String: ShelfFace] = [:]
     private let markStore = MarkStore.shared
@@ -140,6 +144,10 @@ struct LibraryView: View {
                                 ShelfItem(entry: entry, face: faces[entry.path], shelves: shelves.names, open: { open(entry) },
                                           forget: { library.forget(entry) },
                                           setFinished: { library.setFinished(entry.url, $0) },
+                                          hover: { inside in
+                                              if inside { hovered = entry.url } else if hovered == entry.url { hovered = nil }
+                                          },
+                                          quickLook: { preview = entry.url },
                                           toggleShelf: { shelf in
                                               if entry.shelves?.contains(shelf) == true { library.take(entry.url, off: shelf) }
                                               else { library.put(entry.url, on: shelf) }
@@ -190,6 +198,14 @@ struct LibraryView: View {
             }
         }
         .navigationTitle("Library")
+        .quickLookPreview($preview)
+        .onKeyPress(.space) {
+            // Space previews the cover under the pointer, and closes the preview again.
+            if preview != nil { preview = nil; return .handled }
+            guard let hovered else { return .ignored }
+            preview = hovered
+            return .handled
+        }
         .alert(naming == .new ? "New Shelf" : "Rename Shelf", isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } })) {
             TextField("Name", text: $name)
             Button(naming == .new ? "Create" : "Rename") {
@@ -324,6 +340,8 @@ private struct ShelfItem: View {
     let open: () -> Void
     let forget: () -> Void
     let setFinished: (Bool?) -> Void
+    let hover: (Bool) -> Void
+    let quickLook: () -> Void
     let toggleShelf: (String) -> Void
     let newShelf: () -> Void
 
@@ -357,9 +375,11 @@ private struct ShelfItem: View {
         }
         .buttonStyle(.plain)
         .help(entry.path)
+        .onHover(perform: hover)
         .draggable(entry.url)                                    // onto a shelf in the sidebar
         .contextMenu {
             Button("Open") { open() }
+            Button("Quick Look") { quickLook() }
             Menu("Add to Shelf") {
                 ForEach(shelves, id: \.self) { shelf in
                     Button { toggleShelf(shelf) } label: {
