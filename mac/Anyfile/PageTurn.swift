@@ -72,11 +72,15 @@ struct SwipeTurn {
 /// Holds the reading view and plays page turns over it. The turn is drawn in a layer above the page;
 /// the real text underneath already shows the new chapter once a turn is decided, so nothing waits on it.
 final class PageTurnView: NSView {
-    let scroll: NSScrollView
+    /// The page being turned: a chapter's scroll view, or a PDF view.
+    let content: NSView
+    var scroll: NSScrollView { content as! NSScrollView }
     /// The neighbouring page (+1 next, -1 previous) as it will look, for a swipe to turn toward.
     var preview: ((Int) -> CGImage?)?
     /// Called when a swipe has turned the page, to change the chapter underneath.
     var commit: ((Int) -> Void)?
+    /// Called when a swipe settles back without turning, for a view that moved ahead to picture the next page.
+    var cancelled: ((Int) -> Void)?
     /// The paper colour, for the back of the turning page.
     var paper: NSColor = Theme.paper.window { didSet { renderer?.paper = paper } }
 
@@ -98,19 +102,21 @@ final class PageTurnView: NSView {
     /// Counts turns, so a fallback timer only ever ends the turn that scheduled it.
     private var turnNumber = 0
 
-    init(scroll: NSScrollView) {
-        self.scroll = scroll
+    convenience init(scroll: NSScrollView) { self.init(content: scroll) }
+
+    init(content: NSView) {
+        self.content = content
         super.init(frame: .zero)
         wantsLayer = true
-        scroll.frame = bounds
-        scroll.autoresizingMask = [.width, .height]
-        addSubview(scroll)
-        (scroll as? PageScrollView)?.turner = self
+        content.frame = bounds
+        content.autoresizingMask = [.width, .height]
+        addSubview(content)
+        (content as? SwipeTurning)?.router.turner = self
         for v in [metalView, fadeView] {
             v.frame = bounds
             v.autoresizingMask = [.width, .height]
             v.isHidden = true
-            addSubview(v, positioned: .above, relativeTo: scroll)
+            addSubview(v, positioned: .above, relativeTo: content)
         }
         metal.device = renderer?.device
         metal.pixelFormat = PageRenderer.pixelFormat
@@ -129,8 +135,8 @@ final class PageTurnView: NSView {
 
     /// What the page looks like now, at screen resolution.
     func snapshot() -> CGImage? {
-        guard bounds.width > 1, bounds.height > 1, let rep = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds) else { return nil }
-        scroll.cacheDisplay(in: scroll.bounds, to: rep)
+        guard bounds.width > 1, bounds.height > 1, let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else { return nil }
+        content.cacheDisplay(in: content.bounds, to: rep)
         return rep.cgImage
     }
 
@@ -139,7 +145,7 @@ final class PageTurnView: NSView {
     /// Plays a whole turn from the page as it was to the page as it is now.
     func turn(from oldPage: CGImage, forward: Bool) {
         layoutSubtreeIfNeeded()
-        scroll.displayIfNeeded()
+        content.displayIfNeeded()
         guard let newPage = snapshot(), newPage.width == oldPage.width, newPage.height == oldPage.height else { return }
         show(old: oldPage, new: newPage, forward: forward)
         animate(to: 1, duration: PageCurl.duration, curve: PageCurl.eased)
@@ -171,7 +177,7 @@ final class PageTurnView: NSView {
         // The rest of the way takes as long as the distance left, at the speed of a whole turn.
         let duration = max(0.12, PageCurl.duration * abs(target - fraction))
         animate(to: target, duration: duration, curve: PageCurl.easedOut)
-        if s.commits { commit?(step) }                         // the text underneath changes now, under the turning page
+        if s.commits { commit?(step) } else { cancelled?(step) }   // either way it happens now, under the turning page
     }
 
     // MARK: Drawing
@@ -269,24 +275,28 @@ final class TurnLayerView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
-/// The reading view's scroll view. Up and down scroll as usual; a two-finger swipe left or right
-/// on a trackpad goes to the page turner instead, and so does the momentum that follows it.
-final class PageScrollView: NSScrollView {
+/// A view that hands sideways trackpad swipes to the page turner.
+protocol SwipeTurning: NSView {
+    var router: SwipeRouter { get }
+}
+
+/// Sorts a view's scroll events: up and down scroll as usual; a two-finger swipe left or right on a
+/// trackpad goes to the page turner instead, and so does the momentum that follows it.
+final class SwipeRouter {
     weak var turner: PageTurnView?
     private enum Gesture { case undecided, scrolling, turning }
     private var gesture = Gesture.undecided
     private var swallowMomentum = false
 
-    override func scrollWheel(with event: NSEvent) {
+    /// Returns true when the event was a page turn; false means scroll as usual.
+    func take(_ event: NSEvent) -> Bool {
         // A mouse wheel has no phases and only ever scrolls.
-        if event.phase.isEmpty && event.momentumPhase.isEmpty { return super.scrollWheel(with: event) }
+        if event.phase.isEmpty && event.momentumPhase.isEmpty { return false }
         if !event.momentumPhase.isEmpty {
             // The coasting after a swipe that turned the page belongs to the turn, not to scrolling.
-            if swallowMomentum {
-                if event.momentumPhase.contains(.ended) || event.momentumPhase.contains(.cancelled) { swallowMomentum = false }
-                return
-            }
-            return super.scrollWheel(with: event)
+            guard swallowMomentum else { return false }
+            if event.momentumPhase.contains(.ended) || event.momentumPhase.contains(.cancelled) { swallowMomentum = false }
+            return true
         }
         if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
             gesture = .undecided
@@ -295,18 +305,26 @@ final class PageScrollView: NSScrollView {
         if gesture == .undecided, event.scrollingDeltaX != 0 || event.scrollingDeltaY != 0 {
             gesture = Self.isTurn(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY) && turner != nil ? .turning : .scrolling
         }
-        switch gesture {
-        case .turning:
-            turner?.swipeMoved(by: SwipeTurn.fingerDX(scrollingDeltaX: event.scrollingDeltaX, invertedFromDevice: event.isDirectionInvertedFromDevice))
-            if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
-                turner?.swipeEnded()
-                swallowMomentum = true
-            }
-        case .scrolling, .undecided:
-            super.scrollWheel(with: event)
+        guard gesture == .turning else { return false }
+        turner?.swipeMoved(by: SwipeTurn.fingerDX(scrollingDeltaX: event.scrollingDeltaX, invertedFromDevice: event.isDirectionInvertedFromDevice))
+        if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
+            turner?.swipeEnded()
+            swallowMomentum = true
         }
+        return true
     }
 
     /// A swipe turns the page when it is clearly more sideways than up or down.
     static func isTurn(dx: CGFloat, dy: CGFloat) -> Bool { abs(dx) > abs(dy) * 1.5 }
+}
+
+/// The reading view's scroll view, with sideways swipes going to the page turner.
+final class PageScrollView: NSScrollView, SwipeTurning {
+    let router = SwipeRouter()
+
+    override func scrollWheel(with event: NSEvent) {
+        if !router.take(event) { super.scrollWheel(with: event) }
+    }
+
+    static func isTurn(dx: CGFloat, dy: CGFloat) -> Bool { SwipeRouter.isTurn(dx: dx, dy: dy) }
 }
