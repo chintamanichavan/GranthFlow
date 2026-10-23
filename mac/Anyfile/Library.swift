@@ -21,6 +21,11 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     var unopened: Bool?
     /// The reader's own shelves this file is on.
     var shelves: [String]?
+    /// Marked finished, or not, by the reader; nil leaves it to the reading place.
+    var finished: Bool?
+
+    /// Finished when the reader says so, otherwise when reading has reached the end.
+    var isFinished: Bool { finished ?? ((progress ?? 0) >= 1) }
 
     var id: String { path }
     var url: URL { URL(fileURLWithPath: path) }
@@ -30,8 +35,8 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     var progressText: String? {
         guard let position, let total, total > 0 else { return nil }
         switch kind {
-        case "epub": return position >= total ? "Finished" : "Chapter \(position) of \(total)"
-        case "pdf": return position + 1 >= total ? "Finished" : "Page \(position + 1) of \(total)"
+        case "epub": return isFinished ? "Finished" : "Chapter \(position) of \(total)"
+        case "pdf": return isFinished ? "Finished" : "Page \(position + 1) of \(total)"
         default: return nil
         }
     }
@@ -42,7 +47,7 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
         return kind == "pdf" ? Double(position + 1) / Double(total) : Double(position) / Double(total)
     }
 
-    var isUnfinished: Bool { (progress ?? 1) < 1 }
+    var isUnfinished: Bool { progress != nil && !isFinished }
 }
 
 /// Where the app keeps its preferences: shelves, watched folders, reading speed, the latest Aa choice.
@@ -100,7 +105,12 @@ final class Library {
     }
 
     /// Books and documents part-way through, most recent first.
-    var continueReading: [LibraryEntry] { recent.filter { $0.progress != nil && $0.isUnfinished } }
+    var continueReading: [LibraryEntry] { recent.filter(\.isUnfinished) }
+
+    /// Read to the end, or marked finished.
+    var finished: [LibraryEntry] { recent.filter(\.isFinished) }
+
+    func setFinished(_ url: URL, _ value: Bool?) { edit(url) { $0.finished = value } }
 
     func entry(for url: URL) -> LibraryEntry? { entries.first { $0.path == url.standardizedFileURL.path } }
 

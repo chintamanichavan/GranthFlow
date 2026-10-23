@@ -12,7 +12,7 @@ struct ShelfFace {
 }
 
 enum LibrarySection: String, CaseIterable, Identifiable {
-    case library, continueReading, marks, books, documents, notes, other
+    case library, continueReading, finished, marks, books, documents, notes, other
 
     var id: String { rawValue }
 
@@ -20,6 +20,7 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         switch self {
         case .library: "Library"
         case .continueReading: "Continue reading"
+        case .finished: "Finished"
         case .marks: "Marks"
         case .books: "Books"
         case .documents: "Documents"
@@ -32,6 +33,7 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         switch self {
         case .library: "books.vertical"
         case .continueReading: "bookmark"
+        case .finished: "checkmark.circle"
         case .marks: "highlighter"
         case .books: "book.closed"
         case .documents: "doc.richtext"
@@ -44,6 +46,7 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         switch self {
         case .library: library.recent
         case .continueReading: library.continueReading
+        case .finished: library.finished
         case .marks: []                                  // marks are listed by the view, not as files
         case .books: library.recent.filter { $0.kind == "epub" }
         case .documents: library.recent.filter { $0.kind == "pdf" }
@@ -78,5 +81,46 @@ enum Shelf {
         }
         let detail = entry.progressText ?? (author.isEmpty ? ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file) : author)
         return ShelfFace(art: art, title: title, subtitle: "\(label) · \(detail)", author: author, cloth: cloth)
+    }
+}
+
+/// How the shelf is ordered.
+enum ShelfOrder: String, CaseIterable, Identifiable {
+    case lastOpened, title, author, kind
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .lastOpened: "Last Opened"
+        case .title: "Title"
+        case .author: "Author"
+        case .kind: "Kind"
+        }
+    }
+
+    /// Titles and authors come from the files' faces where they have them, else the file's name.
+    /// Files without an author follow those with one. Ties keep the most recently opened first.
+    func sorted(_ entries: [LibraryEntry], faces: [String: ShelfFace]) -> [LibraryEntry] {
+        func title(_ e: LibraryEntry) -> String { faces[e.path]?.title ?? Cover.stem(e.name) }
+        func author(_ e: LibraryEntry) -> String { faces[e.path]?.author ?? "" }
+        func before(_ a: String, _ b: String) -> Bool? {
+            let order = a.localizedStandardCompare(b)
+            return order == .orderedSame ? nil : order == .orderedAscending
+        }
+        switch self {
+        case .lastOpened:
+            return entries.sorted { $0.opened > $1.opened }
+        case .title:
+            return entries.sorted { before(title($0), title($1)) ?? ($0.opened > $1.opened) }
+        case .author:
+            return entries.sorted { a, b in
+                let (x, y) = (author(a), author(b))
+                if x.isEmpty != y.isEmpty { return !x.isEmpty }
+                return before(x, y) ?? before(title(a), title(b)) ?? (a.opened > b.opened)
+            }
+        case .kind:
+            return entries.sorted { before(KindLabel.label(kind: $0.kind), KindLabel.label(kind: $1.kind)) ?? before(title($0), title($1)) ?? ($0.opened > $1.opened) }
+        }
     }
 }

@@ -15,6 +15,7 @@ struct LibraryView: View {
     @State private var selected: SidebarItem? = .section(.library)
     private let shelves = Shelves.shared
     @State private var naming: Naming?
+    @AppStorage("shelfOrder", store: AppDefaults.store) private var order = ShelfOrder.lastOpened
     @State private var name = ""
     @State private var faces: [String: ShelfFace] = [:]
     private let markStore = MarkStore.shared
@@ -36,7 +37,9 @@ struct LibraryView: View {
         return nil
     }
 
-    private var shown: [LibraryEntry] {
+    private var shown: [LibraryEntry] { order.sorted(unsorted, faces: faces) }
+
+    private var unsorted: [LibraryEntry] {
         switch selected ?? .section(.library) {
         case let .section(s): s.entries(in: library)
         case let .shelf(name): shelves.files(on: name)
@@ -51,7 +54,7 @@ struct LibraryView: View {
 
     private var heading: String {
         switch selected ?? .section(.library) {
-        case .section(.library): "Recently opened"
+        case .section(.library): order == .lastOpened ? "Recently opened" : "Library"
         case let .section(s): s.title
         case let .shelf(name): name
         case let .folder(path): (path as NSString).lastPathComponent
@@ -136,6 +139,7 @@ struct LibraryView: View {
                             ForEach(shown) { entry in
                                 ShelfItem(entry: entry, face: faces[entry.path], shelves: shelves.names, open: { open(entry) },
                                           forget: { library.forget(entry) },
+                                          setFinished: { library.setFinished(entry.url, $0) },
                                           toggleShelf: { shelf in
                                               if entry.shelves?.contains(shelf) == true { library.take(entry.url, off: shelf) }
                                               else { library.put(entry.url, on: shelf) }
@@ -163,6 +167,16 @@ struct LibraryView: View {
             .searchable(text: $query, placement: .toolbar, prompt: "Search every file")
             .task(id: query) { await search() }
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Picker("Sort By", selection: $order) {
+                            ForEach(ShelfOrder.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.inline)
+                    } label: { Label("Sort", systemImage: "arrow.up.arrow.down") }
+                        .help("Sort the shelf")
+                        .accessibilityIdentifier("sortShelf")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: watchPanel) { Label("Watch a Folder", systemImage: "folder.badge.plus") }
                         .help("Watch a folder: its files join the library by themselves")
@@ -309,6 +323,7 @@ private struct ShelfItem: View {
     let shelves: [String]
     let open: () -> Void
     let forget: () -> Void
+    let setFinished: (Bool?) -> Void
     let toggleShelf: (String) -> Void
     let newShelf: () -> Void
 
@@ -321,6 +336,16 @@ private struct ShelfItem: View {
                 }
                 .aspectRatio(CoverView.base.width / CoverView.base.height, contentMode: .fit)
                 .frame(maxWidth: .infinity, alignment: .bottomLeading)
+                .overlay(alignment: .topTrailing) {
+                    if entry.unopened == true {
+                        Text("NEW").font(.system(size: 9, weight: .bold)).kerning(0.6)
+                            .padding(.horizontal, 6).padding(.vertical, 3)
+                            .background(Color.accentColor, in: Capsule())
+                            .foregroundStyle(.white)
+                            .padding(6)
+                            .accessibilityIdentifier("newBadge")
+                    }
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(face?.title ?? entry.name).font(.callout.weight(.medium)).lineLimit(2)
                         .foregroundStyle(Color(nsColor: Theme.library.label))
@@ -343,6 +368,11 @@ private struct ShelfItem: View {
                 }
                 if !shelves.isEmpty { Divider() }
                 Button("New Shelf…", action: newShelf)
+            }
+            if entry.isFinished {
+                Button("Mark as Unfinished") { setFinished(entry.progress == nil ? nil : false) }
+            } else {
+                Button("Mark as Finished") { setFinished(true) }
             }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([entry.url]) }
             let marks = MarkStore.shared.marks(for: entry.url)
