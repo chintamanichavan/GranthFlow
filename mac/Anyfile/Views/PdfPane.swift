@@ -195,7 +195,7 @@ struct PdfKitView: NSViewRepresentable {
         return marks.compactMap { mark in
             guard let page = doc.page(at: mark.target),
                   let found = doc.findString(mark.quote, withOptions: []).first(where: { $0.pages.contains(page) }) else { return nil }
-            found.color = Theme.mark
+            found.color = mark.colour.paint
             return found
         }
     }

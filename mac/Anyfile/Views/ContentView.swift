@@ -107,11 +107,11 @@ struct ContentView: View {
             if let fileURL { Library.shared.recordPosition(fileURL, position: page, total: count) }
         }, marks: marks, onSelect: { selection = $0 })
         case "epub": EpubPane(document: document, chapter: $chapter, find: jump,
-                              marks: marks.filter { $0.target == chapter }.map(\.quote), onSelect: { selection = $0 },
+                              marks: marks.filter { $0.target == chapter }.map(\.paint), onSelect: { selection = $0 },
                               resume: resume?.chapter == chapter ? resume?.anchor : nil,
                               onPlace: reached, settings: settings)
-        case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
-        case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
+        case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 })
+        case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 })
         default: HexPane(document: document, jump: jump)
         }
     }
@@ -137,7 +137,8 @@ struct ContentView: View {
                                  document: $document, runsImmediately: false, onApply: apply).id("edit-\(document.kind)"))
         case .mark:
             AnyView(MarkPanel(marks: marks, status: markStatus, choose: { go(to: $0.target, query: $0.quote) },
-                              remove: { markStore.remove($0) }, setNote: { markStore.setNote($1, for: $0) }))
+                              remove: { markStore.remove($0) }, setNote: { markStore.setNote($1, for: $0) },
+                              setColour: { markStore.setColour($1, for: $0) }))
         case .find:
             AnyView(FindPanel(document: document) { hit, query in go(to: hit.target, query: query) }.id("find-\(document.kind)"))
         default:

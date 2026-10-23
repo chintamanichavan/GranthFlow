@@ -1,7 +1,29 @@
 // Marks: passages you highlighted, kept apart from the files so marking never changes a file.
 // Stored as pretty-printed JSON beside the library.
-import Foundation
+import AppKit
 import Observation
+
+/// The colour a mark is painted in. A reader might use yellow for ideas and pink for quotes.
+enum MarkColour: String, Codable, CaseIterable {
+    case yellow, pink, green, blue
+
+    var paint: NSColor {
+        switch self {
+        case .yellow: Theme.mark
+        case .pink: NSColor(hex: "#FF9EC4")!
+        case .green: NSColor(hex: "#A6E3A1")!
+        case .blue: NSColor(hex: "#9CC8FF")!
+        }
+    }
+
+    var title: String { rawValue.capitalized }
+}
+
+/// A passage to paint, and in which colour.
+struct Paint: Equatable {
+    let quote: String
+    let colour: MarkColour
+}
 
 struct Mark: Codable, Equatable, Identifiable {
     var id = UUID()
@@ -14,10 +36,14 @@ struct Mark: Codable, Equatable, Identifiable {
     var created = Date()
     /// The reader's own words about the passage.
     var note = ""
+    var colour = MarkColour.yellow
+
+    var paint: Paint { Paint(quote: quote, colour: colour) }
 
     var name: String { (path as NSString).lastPathComponent }
 
-    init(id: UUID = UUID(), path: String, kind: String, quote: String, target: Int, place: String, created: Date = Date(), note: String = "") {
+    init(id: UUID = UUID(), path: String, kind: String, quote: String, target: Int, place: String, created: Date = Date(),
+         note: String = "", colour: MarkColour = .yellow) {
         self.id = id
         self.path = path
         self.kind = kind
@@ -26,6 +52,7 @@ struct Mark: Codable, Equatable, Identifiable {
         self.place = place
         self.created = created
         self.note = note
+        self.colour = colour
     }
 
     // Written by hand so marks saved before a field existed still load, with that field's default.
@@ -39,6 +66,7 @@ struct Mark: Codable, Equatable, Identifiable {
         place = try c.decode(String.self, forKey: .place)
         created = try c.decode(Date.self, forKey: .created)
         note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+        colour = try c.decodeIfPresent(MarkColour.self, forKey: .colour) ?? .yellow
     }
 }
 
@@ -98,6 +126,12 @@ final class MarkStore {
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
         guard marks[i].note != trimmed else { return }
         marks[i].note = trimmed
+        save()
+    }
+
+    func setColour(_ colour: MarkColour, for mark: Mark) {
+        guard let i = marks.firstIndex(where: { $0.id == mark.id }), marks[i].colour != colour else { return }
+        marks[i].colour = colour
         save()
     }
 

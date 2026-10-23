@@ -24,7 +24,7 @@ struct EpubPane: View {
     @Binding var chapter: Int?
     /// A Find jump: its query is selected once the chapter's text is on show.
     var find: Jump? = nil
-    var marks: [String] = []
+    var marks: [Paint] = []
     var onSelect: (Selection?) -> Void = { _ in }
     /// Where to resume in the chapter on show: the first character that was on screen.
     var resume: Int? = nil
@@ -98,7 +98,7 @@ struct ReadingText: NSViewRepresentable {
     var number: Int? = nil
     var title: String = ""
     var find: Jump? = nil
-    var marks: [String] = []
+    var marks: [Paint] = []
     var onSelect: (String?) -> Void = { _ in }
     /// Asks for the next (+1) or previous (-1) chapter, from the arrow keys or Space at the end.
     var onTurn: (Int) -> Void = { _ in }
@@ -240,7 +240,7 @@ struct ReadingText: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var lastFind: Jump?
         var shown: [String] = []
-        var lastMarks: [String]?
+        var lastMarks: [Paint]?
         var onSelect: (String?) -> Void = { _ in }
         var onPlace: (Int, Int) -> Void = { _, _ in }
         var resumed = false

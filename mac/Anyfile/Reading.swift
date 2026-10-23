@@ -128,18 +128,22 @@ final class PaperTextView: NSTextView {
 }
 
 enum Highlights {
-    /// Paints every occurrence of each marked quote with the mark colour. Temporary attributes,
-    /// so the highlight is drawn but never becomes part of the text.
-    static func apply(_ quotes: [String], to tv: NSTextView) {
+    /// Paints every occurrence of each marked quote in its colour. Temporary attributes, so the
+    /// highlight is drawn but never becomes part of the text. On dark paper the colour is laid on
+    /// lighter, so the light text over it stays readable.
+    static func apply(_ paints: [Paint], to tv: NSTextView) {
         guard let lm = tv.layoutManager else { return }
         let ns = tv.string as NSString
         lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: NSRange(location: 0, length: ns.length))
-        for quote in quotes where !quote.isEmpty {
-            for r in ranges(of: quote, in: ns) {
-                lm.addTemporaryAttribute(.backgroundColor, value: Theme.mark.withAlphaComponent(0.7), forCharacterRange: r)
+        let strength = isDark(tv.backgroundColor) ? 0.38 : 0.7
+        for paint in paints where !paint.quote.isEmpty {
+            for r in ranges(of: paint.quote, in: ns) {
+                lm.addTemporaryAttribute(.backgroundColor, value: paint.colour.paint.withAlphaComponent(strength), forCharacterRange: r)
             }
         }
     }
+
+    static func isDark(_ colour: NSColor) -> Bool { (colour.usingColorSpace(.sRGB)?.brightnessComponent ?? 1) < 0.4 }
 
     static func ranges(of quote: String, in ns: NSString) -> [NSRange] {
         var out: [NSRange] = []

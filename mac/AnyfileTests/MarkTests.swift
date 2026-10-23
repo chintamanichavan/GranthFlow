@@ -61,7 +61,7 @@ final class MarkTests: XCTestCase {
     func testHighlightsDoNotChangeTheText() {
         let tv = NSTextView()
         tv.string = "Call me Ishmael."
-        Highlights.apply(["Ishmael"], to: tv)
+        Highlights.apply([Paint(quote: "Ishmael", colour: .yellow)], to: tv)
         XCTAssertEqual(tv.string, "Call me Ishmael.")
         let painted = tv.layoutManager?.temporaryAttribute(.backgroundColor, atCharacterIndex: 9, effectiveRange: nil)
         XCTAssertNotNil(painted)

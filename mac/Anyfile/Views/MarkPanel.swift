@@ -8,6 +8,7 @@ struct MarkPanel: View {
     let choose: (Mark) -> Void
     let remove: (Mark) -> Void
     var setNote: (Mark, String) -> Void = { _, _ in }
+    var setColour: (Mark, MarkColour) -> Void = { _, _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -23,7 +24,8 @@ struct MarkPanel: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2) {
                         ForEach(marks) { mark in
-                            MarkRow(mark: mark, choose: { choose(mark) }, remove: { remove(mark) }, setNote: { setNote(mark, $0) })
+                            MarkRow(mark: mark, choose: { choose(mark) }, remove: { remove(mark) }, setNote: { setNote(mark, $0) },
+                                    setColour: { setColour(mark, $0) })
                         }
                     }
                 }
@@ -41,13 +43,27 @@ struct MarkRow: View {
     let choose: () -> Void
     let remove: () -> Void
     var setNote: (String) -> Void = { _ in }
+    var setColour: (MarkColour) -> Void = { _ in }
     @State private var editing = false
     @State private var draft = ""
     @FocusState private var focused: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            RoundedRectangle(cornerRadius: 1.5).fill(Color(nsColor: Theme.mark)).frame(width: 3)
+            Menu {
+                ForEach(MarkColour.allCases, id: \.self) { c in
+                    Button { setColour(c) } label: { Label(c.title, systemImage: c == mark.colour ? "checkmark.circle.fill" : "circle.fill") }
+                        .accessibilityIdentifier("colour.\(c.rawValue)")
+                }
+            } label: {
+                RoundedRectangle(cornerRadius: 2).fill(Color(nsColor: mark.colour.paint)).frame(width: 5, height: 34)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Colour: \(mark.colour.title)")
+            .accessibilityIdentifier("markColour")
             VStack(alignment: .leading, spacing: 4) {
                 Button(action: choose) {
                     VStack(alignment: .leading, spacing: 3) {

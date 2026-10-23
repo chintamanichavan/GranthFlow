@@ -7,7 +7,7 @@ struct TextPane: NSViewRepresentable {
     /// A 1-based line to bring into view and select, once per jump.
     var jump: Jump? = nil
     /// Quotes to paint as marks.
-    var marks: [String] = []
+    var marks: [Paint] = []
     var onSelect: (Selection?) -> Void = { _ in }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -81,7 +81,7 @@ struct TextPane: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var text: Binding<String>
         var lastJump: Jump?
-        var lastMarks: [String] = []
+        var lastMarks: [Paint] = []
         var lastLength = -1
         var onSelect: (Selection?) -> Void = { _ in }
         init(text: Binding<String>) { self.text = text }

@@ -5,7 +5,7 @@ struct MarkdownPane: View {
     @Binding var document: AnyfileDocument
     /// A heading's line number from Contents, followed in both modes.
     var jump: Jump? = nil
-    var marks: [String] = []
+    var marks: [Paint] = []
     var onSelect: (Selection?) -> Void = { _ in }
     @State private var showPreview = false
 

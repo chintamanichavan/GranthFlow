@@ -41,7 +41,7 @@ struct LibraryView: View {
                     }
                     if section == .marks {
                         MarksList(marks: markStore.all, open: open(_:), remove: { markStore.remove($0) },
-                                  setNote: { markStore.setNote($1, for: $0) })
+                                  setNote: { markStore.setNote($1, for: $0) }, setColour: { markStore.setColour($1, for: $0) })
                     } else if shown.isEmpty {
                         EmptyShelf(section: section ?? .library, open: openPanel)
                     } else {
@@ -258,7 +258,7 @@ private struct MarkCard: View {
     var body: some View {
         Button(action: open) {
             HStack(alignment: .top, spacing: 12) {
-                RoundedRectangle(cornerRadius: 1.5).fill(Color(nsColor: Theme.mark)).frame(width: 3)
+                RoundedRectangle(cornerRadius: 1.5).fill(Color(nsColor: mark.colour.paint)).frame(width: 3)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("“\(mark.quote)”").font(.system(size: 14, design: .serif)).lineLimit(3)
                         .foregroundStyle(Color(nsColor: Theme.library.label))
@@ -285,6 +285,7 @@ private struct MarksList: View {
     let open: (Mark) -> Void
     let remove: (Mark) -> Void
     let setNote: (Mark, String) -> Void
+    let setColour: (Mark, MarkColour) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -295,7 +296,7 @@ private struct MarksList: View {
             }
             ForEach(marks) { mark in
                 MarkRow(mark: mark, caption: "\(mark.name)  ·  \(mark.place)", choose: { open(mark) }, remove: { remove(mark) },
-                        setNote: { setNote(mark, $0) })
+                        setNote: { setNote(mark, $0) }, setColour: { setColour(mark, $0) })
                 Divider()
             }
         }
