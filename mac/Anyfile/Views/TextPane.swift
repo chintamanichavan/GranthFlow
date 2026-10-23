@@ -9,6 +9,7 @@ struct TextPane: NSViewRepresentable {
     /// Quotes to paint as marks.
     var marks: [Paint] = []
     var onSelect: (Selection?) -> Void = { _ in }
+    var handle: TextViewHandle? = nil
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSTextView.scrollableTextView()
@@ -26,6 +27,7 @@ struct TextPane: NSViewRepresentable {
         tv.allowsUndo = true
         tv.delegate = context.coordinator
         tv.setAccessibilityIdentifier("textEditor")
+        handle?.textView = tv
         tv.string = text
         return scroll
     }

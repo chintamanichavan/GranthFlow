@@ -18,6 +18,8 @@ struct ContentView: View {
     @State private var chapterTotal = 0
     @State private var settings = ReadingSettings()
     @State private var showSettings = false
+    @State private var speaker = Speaker()
+    @State private var handle = TextViewHandle()
     private let markStore = MarkStore.shared
 
     /// The place reading stopped is restored here, before any pane appears: the EPUB pane picks
@@ -77,13 +79,31 @@ struct ContentView: View {
         .onChange(of: active) { _, now in if now == .mark { markSelection() } }
         .onChange(of: Navigator.shared.pending) { followRequest() }
         .onChange(of: fileURL) { remember() }
+        .onChange(of: chapter) { speaker.stop() }                // reading belongs to the page it started on
         .onChange(of: chapter) { _, chapter in
             guard let fileURL, let chapter else { return }
             Library.shared.recordPosition(fileURL, position: chapter, total: chapterCount)
         }
         .onChange(of: active) { _, now in if now == .contents { entries = Contents.entries(for: document) } }
         .onChange(of: document.data) { if active == .contents { entries = Contents.entries(for: document) } }
+        .onDisappear { speaker.stop() }
         .toolbar {
+            if ["epub", "markdown", "text"].contains(document.kind) {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    if speaker.state == .idle {
+                        Button(action: readAloud) { Label("Read Aloud", systemImage: "speaker.wave.2") }
+                            .help("Read aloud from the selection, or from the top of the page")
+                            .accessibilityIdentifier("readAloud")
+                    } else {
+                        Button(action: speaker.pauseOrResume) {
+                            Label(speaker.state == .paused ? "Resume" : "Pause", systemImage: speaker.state == .paused ? "play.fill" : "pause.fill")
+                        }
+                        .accessibilityIdentifier("pauseReading")
+                        Button(action: speaker.stop) { Label("Stop", systemImage: "stop.fill") }
+                            .accessibilityIdentifier("stopReading")
+                    }
+                }
+            }
             if document.kind == "epub" {
                 ToolbarItem(placement: .primaryAction) {
                     Button { showSettings.toggle() } label: { Text("Aa").font(.system(size: 14, design: .serif)) }
@@ -109,9 +129,9 @@ struct ContentView: View {
         case "epub": EpubPane(document: document, chapter: $chapter, find: jump,
                               marks: marks.filter { $0.target == chapter }.map(\.paint), onSelect: { selection = $0 },
                               resume: resume?.chapter == chapter ? resume?.anchor : nil,
-                              onPlace: reached, settings: settings)
-        case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 })
-        case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 })
+                              onPlace: reached, settings: settings, handle: handle)
+        case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 }, handle: handle)
+        case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 }, handle: handle)
         default: HexPane(document: document, jump: jump, marks: marks, onSelect: { selection = $0 })
         }
     }
@@ -162,6 +182,15 @@ struct ContentView: View {
         guard let fileURL, let chapter else { return }
         Library.shared.recordAnchor(fileURL, anchor: anchor, wordsLeft: words)
         ReadingClock.shared.place(book: fileURL.path, chapter: chapter, wordsLeft: words)
+    }
+
+    private func readAloud() {
+        guard let tv = handle.textView else { return }
+        // A book says its language; other files are recognised from their text.
+        let language = document.kind == "epub"
+            ? Cover.field("language", in: Engine.run("meta", args: [], on: document.data, name: document.name, kind: document.kind).output)
+            : nil
+        speaker.speak(tv, language: language)
     }
 
     private func remember() {

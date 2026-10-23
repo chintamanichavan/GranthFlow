@@ -9,6 +9,7 @@ struct MarkdownPane: View {
     var jump: Jump? = nil
     var marks: [Paint] = []
     var onSelect: (Selection?) -> Void = { _ in }
+    var handle: TextViewHandle? = nil
     @State private var showPreview = false
 
     var body: some View {
@@ -24,9 +25,9 @@ struct MarkdownPane: View {
             .onChange(of: showPreview) { onSelect(nil) }               // a selection belongs to the mode it was made in
             Divider()
             if showPreview {
-                MarkdownPreview(source: document.text, jump: jump, marks: marks, onSelect: onSelect)
+                MarkdownPreview(source: document.text, jump: jump, marks: marks, onSelect: onSelect, handle: handle)
             } else {
-                TextPane(text: $document.text, jump: jump, marks: marks, onSelect: onSelect)
+                TextPane(text: $document.text, jump: jump, marks: marks, onSelect: onSelect, handle: handle)
             }
         }
     }
@@ -129,11 +130,13 @@ struct MarkdownPreview: NSViewRepresentable {
     var jump: Jump?
     var marks: [Paint]
     var onSelect: (Selection?) -> Void
+    var handle: TextViewHandle? = nil
 
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = ReadingText.makePage()
         let tv = scroll.documentView as! PaperTextView
         tv.setAccessibilityIdentifier("markdownPreview")
+        handle?.textView = tv
         tv.delegate = context.coordinator
         return scroll
     }

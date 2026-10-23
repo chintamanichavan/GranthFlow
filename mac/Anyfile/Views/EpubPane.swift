@@ -31,6 +31,7 @@ struct EpubPane: View {
     /// The reading place: the first character on screen, and the words from there to the chapter's end.
     var onPlace: (Int, Int) -> Void = { _, _ in }
     var settings = ReadingSettings()
+    var handle: TextViewHandle? = nil
     @State private var text = ""
     @State private var title = ""
     @State private var loaded: Int?                 // the chapter whose text is in `text`
@@ -43,7 +44,8 @@ struct EpubPane: View {
                         guard let quote, let loaded else { return onSelect(nil) }
                         onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
                     },
-                    onTurn: turn(by:), peek: peek(_:), resume: resume, onPlace: onPlace, language: language, settings: settings)
+                    onTurn: turn(by:), peek: peek(_:), resume: resume, onPlace: onPlace, language: language, settings: settings,
+                    handle: handle)
             .frame(minWidth: 320)
             .overlay(alignment: .leading) { TurnArrow(direction: -1, enabled: neighbour(-1) != nil) { turn(by: -1) } }
             .overlay(alignment: .trailing) { TurnArrow(direction: 1, enabled: neighbour(1) != nil) { turn(by: 1) } }
@@ -110,6 +112,7 @@ struct ReadingText: NSViewRepresentable {
     var onPlace: (Int, Int) -> Void = { _, _ in }
     var language: String? = nil
     var settings = ReadingSettings()
+    var handle: TextViewHandle? = nil
 
     struct Page {
         let text: String
@@ -122,6 +125,7 @@ struct ReadingText: NSViewRepresentable {
     func makeNSView(context: Context) -> PageTurnView {
         let turner = PageTurnView(scroll: Self.makePage())
         (turner.scroll.documentView as? PaperTextView)?.delegate = context.coordinator
+        handle?.textView = turner.scroll.documentView as? NSTextView
         context.coordinator.watchScrolling(turner.scroll)
         return turner
     }
