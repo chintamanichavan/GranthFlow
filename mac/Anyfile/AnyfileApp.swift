@@ -16,6 +16,10 @@ struct AnyfileApp: App {
             ContentView(document: file.$document, fileURL: file.fileURL)
         }
         .commands {
+            CommandGroup(after: .textEditing) {
+                Button("Look Up") { NSApp.sendAction(#selector(NSTextView.lookUp(_:)), to: nil, from: nil) }
+                    .keyboardShortcut("d", modifiers: [.control, .command])
+            }
             CommandGroup(replacing: .help) {
                 Link("Command reference (README)", destination: URL(fileURLWithPath: Bundle.main.bundlePath))
             }

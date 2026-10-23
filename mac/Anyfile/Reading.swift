@@ -171,3 +171,46 @@ enum Highlights {
 enum Later {
     static func report(_ deliver: @escaping () -> Void) { DispatchQueue.main.async(execute: deliver) }
 }
+
+/// Look Up: the system's definition popover for a word or passage. AppKit's text views here do not
+/// put it in their right-click menu, so the app adds it, and an Edit menu command with ⌃⌘D.
+enum LookUp {
+    /// What to look up: the selection, or else the word at a character.
+    static func range(in tv: NSTextView, at character: Int) -> NSRange? {
+        let sel = tv.selectedRange()
+        if sel.length > 0 { return sel }
+        let length = (tv.string as NSString).length
+        guard character >= 0, character < length else { return nil }
+        let word = tv.selectionRange(forProposedRange: NSRange(location: character, length: 0), granularity: .selectByWord)
+        let text = (tv.string as NSString).substring(with: word).trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        return text.isEmpty ? nil : word
+    }
+
+    /// Puts "Look Up “word”" at the top of a text view's right-click menu.
+    static func addItem(to menu: NSMenu, in tv: NSTextView, at character: Int) -> NSMenu {
+        guard let r = range(in: tv, at: character) else { return menu }
+        var shown = (tv.string as NSString).substring(with: r).trimmingCharacters(in: .whitespacesAndNewlines)
+        if shown.count > 24 { shown = String(shown.prefix(22)) + "…" }
+        let item = NSMenuItem(title: "Look Up “\(shown)”", action: #selector(NSTextView.lookUp(_:)), keyEquivalent: "")
+        item.representedObject = NSValue(range: r)
+        item.target = tv
+        menu.insertItem(item, at: 0)
+        menu.insertItem(.separator(), at: 1)
+        return menu
+    }
+}
+
+extension NSTextView {
+    /// Shows the definition of a range (from a menu item), or else of the selection or the word at the caret.
+    @objc func lookUp(_ sender: Any?) {
+        let r = ((sender as? NSMenuItem)?.representedObject as? NSValue)?.rangeValue
+            ?? LookUp.range(in: self, at: selectedRange().location)
+        guard let r, let lm = layoutManager, let storage = textStorage, NSMaxRange(r) <= storage.length else { return }
+        let glyphs = lm.glyphRange(forCharacterRange: r, actualCharacterRange: nil)
+        let line = lm.lineFragmentRect(forGlyphAt: glyphs.location, effectiveRange: nil)
+        let x = lm.location(forGlyphAt: glyphs.location).x
+        let baseline = NSPoint(x: line.minX + x + textContainerOrigin.x,
+                               y: line.minY + lm.location(forGlyphAt: glyphs.location).y + textContainerOrigin.y)
+        showDefinition(for: storage.attributedSubstring(from: r), at: baseline)
+    }
+}

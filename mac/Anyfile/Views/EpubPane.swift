@@ -275,6 +275,10 @@ struct ReadingText: NSViewRepresentable {
 
         deinit { if let token { NotificationCenter.default.removeObserver(token) } }
 
+        func textView(_ view: NSTextView, menu: NSMenu, for event: NSEvent, at charIndex: Int) -> NSMenu? {
+            LookUp.addItem(to: menu, in: view, at: charIndex)
+        }
+
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             let r = tv.selectedRange()

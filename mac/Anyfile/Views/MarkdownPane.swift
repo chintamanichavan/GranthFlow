@@ -169,6 +169,10 @@ struct MarkdownPreview: NSViewRepresentable {
         var jump: Jump?
         var onSelect: (Selection?) -> Void = { _ in }
 
+        func textView(_ view: NSTextView, menu: NSMenu, for event: NSEvent, at charIndex: Int) -> NSMenu? {
+            LookUp.addItem(to: menu, in: view, at: charIndex)
+        }
+
         /// A selection in the preview becomes a mark on the source line it starts on.
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView, let storage = tv.textStorage else { return }

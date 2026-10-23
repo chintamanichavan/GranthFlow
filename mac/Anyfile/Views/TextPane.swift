@@ -87,6 +87,10 @@ struct TextPane: NSViewRepresentable {
         var lastLength = -1
         var onSelect: (Selection?) -> Void = { _ in }
         init(text: Binding<String>) { self.text = text }
+        func textView(_ view: NSTextView, menu: NSMenu, for event: NSEvent, at charIndex: Int) -> NSMenu? {
+            LookUp.addItem(to: menu, in: view, at: charIndex)
+        }
+
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             let r = tv.selectedRange()
