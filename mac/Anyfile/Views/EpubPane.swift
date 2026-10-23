@@ -30,6 +30,7 @@ struct EpubPane: View {
     var resume: Int? = nil
     /// The reading place: the first character on screen, and the words from there to the chapter's end.
     var onPlace: (Int, Int) -> Void = { _, _ in }
+    var settings = ReadingSettings()
     @State private var text = ""
     @State private var title = ""
     @State private var loaded: Int?                 // the chapter whose text is in `text`
@@ -42,7 +43,7 @@ struct EpubPane: View {
                         guard let quote, let loaded else { return onSelect(nil) }
                         onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
                     },
-                    onTurn: turn(by:), peek: peek(_:), resume: resume, onPlace: onPlace, language: language)
+                    onTurn: turn(by:), peek: peek(_:), resume: resume, onPlace: onPlace, language: language, settings: settings)
             .frame(minWidth: 320)
             .overlay(alignment: .leading) { TurnArrow(direction: -1, enabled: neighbour(-1) != nil) { turn(by: -1) } }
             .overlay(alignment: .trailing) { TurnArrow(direction: 1, enabled: neighbour(1) != nil) { turn(by: 1) } }
@@ -69,7 +70,7 @@ struct EpubPane: View {
         guard let number = neighbour(step) else { return nil }
         let r = Engine.run("text", args: [String(number)], on: document.data, name: document.name, kind: document.kind)
         guard r.succeeded else { return nil }
-        return ReadingText.Page(text: r.output, number: number, title: titles[number] ?? "", language: language)
+        return ReadingText.Page(text: r.output, number: number, title: titles[number] ?? "", language: language, settings: settings)
     }
 
     private func reload() {
@@ -108,12 +109,14 @@ struct ReadingText: NSViewRepresentable {
     /// The first character on screen and the words after it, reported once scrolling has rested.
     var onPlace: (Int, Int) -> Void = { _, _ in }
     var language: String? = nil
+    var settings = ReadingSettings()
 
     struct Page {
         let text: String
         let number: Int
         let title: String
         var language: String? = nil
+        var settings = ReadingSettings()
     }
 
     func makeNSView(context: Context) -> PageTurnView {
@@ -153,7 +156,9 @@ struct ReadingText: NSViewRepresentable {
         scroll.frame = NSRect(origin: .zero, size: size)
         let tv = scroll.documentView as! NSTextView
         tv.frame = NSRect(origin: .zero, size: NSSize(width: size.width, height: size.height))
-        tv.textStorage?.setAttributedString(ReadingStyle.chapter(page.text, number: page.number, title: page.title, language: page.language))
+        dress(scroll, page.settings)
+        tv.textStorage?.setAttributedString(ReadingStyle.chapter(page.text, number: page.number, title: page.title,
+                                                                 language: page.language, settings: page.settings))
         tv.sizeToFit()
         scroll.layoutSubtreeIfNeeded()
         tv.scrollToBeginningOfDocument(nil)
@@ -162,8 +167,20 @@ struct ReadingText: NSViewRepresentable {
         return rep.cgImage
     }
 
+    /// The page's paper and column, from the reader's settings.
+    static func dress(_ scroll: NSScrollView, _ settings: ReadingSettings) {
+        let paper = settings.palette.window
+        scroll.backgroundColor = paper
+        if let tv = scroll.documentView as? PaperTextView {
+            tv.backgroundColor = paper
+            tv.measure = settings.measure
+        }
+    }
+
     func updateNSView(_ turner: PageTurnView, context: Context) {
         let tv = turner.scroll.documentView as! PaperTextView
+        Self.dress(turner.scroll, settings)
+        turner.paper = settings.palette.window
         tv.onTurn = onTurn
         let peek = self.peek
         turner.preview = { [weak turner] step in
@@ -172,6 +189,14 @@ struct ReadingText: NSViewRepresentable {
         }
         turner.commit = onTurn
         let shown = [String(number ?? 0), title, text, language ?? ""]
+        if context.coordinator.shown == shown, context.coordinator.settings != settings {
+            // Same chapter, new settings: the lines re-wrap, so keep the sentence at the top where it was.
+            let top = ReadingPlace.topCharacter(in: tv)
+            tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title, language: language, settings: settings))
+            ReadingPlace.scroll(tv, toCharacter: top)
+            context.coordinator.lastMarks = nil
+        }
+        context.coordinator.settings = settings
         if context.coordinator.shown != shown {
             // A new chapter number is a page turn: picture the old page before the text changes.
             let previous = Int(context.coordinator.shown.first ?? "")
@@ -179,7 +204,7 @@ struct ReadingText: NSViewRepresentable {
             let turning = previous != nil && previous != 0 && number != nil && previous != number && turner.window != nil && !turner.isBusy
             let old = turning ? turner.snapshot() : nil
             context.coordinator.shown = shown
-            tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title, language: language))
+            tv.textStorage?.setAttributedString(ReadingStyle.chapter(text, number: number, title: title, language: language, settings: settings))
             if let resume, !context.coordinator.resumed, number != nil, !text.isEmpty {
                 context.coordinator.resumed = true                    // only the first time this chapter appears
                 ReadingPlace.scroll(tv, toCharacter: resume)
@@ -219,6 +244,7 @@ struct ReadingText: NSViewRepresentable {
         var onSelect: (String?) -> Void = { _ in }
         var onPlace: (Int, Int) -> Void = { _, _ in }
         var resumed = false
+        var settings = ReadingSettings()
         private var pending: DispatchWorkItem?
         private var token: NSObjectProtocol?
 
@@ -266,7 +292,7 @@ private struct TurnArrow: View {
         Button(action: action) {
             Image(systemName: direction < 0 ? "chevron.left" : "chevron.right")
                 .font(.system(size: 22, weight: .light))
-                .foregroundStyle(Color(nsColor: Theme.paper.secondary))
+                .foregroundStyle(.secondary)
                 .frame(width: 44)
                 .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())

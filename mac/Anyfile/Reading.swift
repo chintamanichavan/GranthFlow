@@ -8,28 +8,33 @@ enum ReadingStyle {
     static let bodySize: CGFloat = 17
 
     /// A chapter as it is shown: "CHAPTER n" and the title, centred, then the text.
-    static func chapter(_ text: String, number: Int?, title: String?, language: String? = nil) -> NSAttributedString {
+    static func chapter(_ text: String, number: Int?, title: String?, language: String? = nil,
+                        settings: ReadingSettings = ReadingSettings()) -> NSAttributedString {
         let out = NSMutableAttributedString()
         let title = title?.trimmingCharacters(in: .whitespaces) ?? ""
+        let scale = CGFloat(settings.size) / bodySize               // the label and title grow with the text
+        let palette = settings.palette
         if let number {
-            out.append(line("CHAPTER \(number)", font: .systemFont(ofSize: 11, weight: .semibold), color: Theme.paper.secondary,
-                            align: .center, kern: 1.6, after: title.isEmpty ? 28 : 8))
+            out.append(line("CHAPTER \(number)", font: .systemFont(ofSize: max(10, 11 * scale), weight: .semibold), color: palette.secondary,
+                            align: .center, kern: 1.6, after: (title.isEmpty ? 28 : 8) * scale))
         }
         if !title.isEmpty {
-            out.append(line(title, font: Theme.readingFont(size: 30, language: language), color: Theme.paper.label, align: .center, after: 30))
+            out.append(line(title, font: Theme.readingFont(size: 30 * scale, language: language), color: palette.label,
+                            align: .center, after: 30 * scale))
         }
-        out.append(body(dropLeadingTitle(text, title: title), language: language))
+        out.append(body(dropLeadingTitle(text, title: title), language: language, settings: settings))
         sizeDevanagari(in: out, language: language)
         return out
     }
 
     /// Body text: serif, generous leading, a little space between paragraphs.
-    static func body(_ text: String, language: String? = nil) -> NSAttributedString {
+    static func body(_ text: String, language: String? = nil, settings: ReadingSettings = ReadingSettings()) -> NSAttributedString {
         let p = NSMutableParagraphStyle()
-        p.lineHeightMultiple = 1.45
-        p.paragraphSpacing = 10
+        p.lineHeightMultiple = settings.lineHeight
+        p.paragraphSpacing = 10 * CGFloat(settings.size) / bodySize
         let out = NSMutableAttributedString(string: text, attributes: [
-            .font: Theme.readingFont(size: bodySize, language: language), .foregroundColor: Theme.paper.label, .paragraphStyle: p,
+            .font: Theme.readingFont(size: CGFloat(settings.size), language: language), .foregroundColor: settings.palette.label,
+            .paragraphStyle: p,
         ])
         sizeDevanagari(in: out, language: language)
         return out
@@ -58,7 +63,7 @@ enum ReadingStyle {
     }
 
     /// The side inset that keeps the column at most `measure` wide and at least 32 points from the edge.
-    static func sideInset(forWidth width: CGFloat) -> CGFloat { max(32, (width - measure) / 2) }
+    static func sideInset(forWidth width: CGFloat, measure: CGFloat = measure) -> CGFloat { max(32, (width - measure) / 2) }
 
     private static func line(_ s: String, font: NSFont, color: NSColor, align: NSTextAlignment, kern: CGFloat = 0, after: CGFloat) -> NSAttributedString {
         let p = NSMutableParagraphStyle()
@@ -96,6 +101,10 @@ enum ReadingPlace {
 /// pages from the keyboard: the arrow keys, or Space, which scrolls and turns once the end is in view.
 final class PaperTextView: NSTextView {
     var onTurn: ((Int) -> Void)?
+    /// The widest the column grows, from the reader's settings.
+    var measure: CGFloat = ReadingStyle.measure {
+        didSet { if measure != oldValue { setFrameSize(frame.size) } }
+    }
 
     override func keyDown(with event: NSEvent) {
         let plain = event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
@@ -113,7 +122,7 @@ final class PaperTextView: NSTextView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
-        let inset = ReadingStyle.sideInset(forWidth: newSize.width)
+        let inset = ReadingStyle.sideInset(forWidth: newSize.width, measure: measure)
         if textContainerInset.width != inset { textContainerInset = NSSize(width: inset, height: 48) }
     }
 }

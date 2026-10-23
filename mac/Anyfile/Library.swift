@@ -15,6 +15,8 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     var anchor: Int?
     /// Words from there to the end of the chapter, for "6 min left in chapter".
     var wordsLeft: Int?
+    /// How this book is set for reading; nil until the reader changes it.
+    var settings: ReadingSettings?
 
     var id: String { path }
     var url: URL { URL(fileURLWithPath: path) }
@@ -102,6 +104,12 @@ final class Library {
               entries[i].anchor != anchor || entries[i].wordsLeft != wordsLeft else { return }
         entries[i].anchor = anchor
         entries[i].wordsLeft = wordsLeft
+        save()
+    }
+
+    func recordSettings(_ url: URL, _ settings: ReadingSettings) {
+        guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }), entries[i].settings != settings else { return }
+        entries[i].settings = settings
         save()
     }
 

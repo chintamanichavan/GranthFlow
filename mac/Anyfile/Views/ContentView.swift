@@ -16,6 +16,8 @@ struct ContentView: View {
     @State private var resume: (chapter: Int, anchor: Int)?
     @State private var wordsLeft: Int?
     @State private var chapterTotal = 0
+    @State private var settings = ReadingSettings()
+    @State private var showSettings = false
     private let markStore = MarkStore.shared
 
     /// The place reading stopped is restored here, before any pane appears: the EPUB pane picks
@@ -23,6 +25,9 @@ struct ContentView: View {
     init(document: Binding<AnyfileDocument>, fileURL: URL? = nil) {
         _document = document
         self.fileURL = fileURL
+        // This book's own settings, else the latest choice made for any book.
+        let saved = fileURL.flatMap { Library.shared.entry(for: $0)?.settings }
+        _settings = State(initialValue: saved ?? ReadingDefaults.load())
         guard let fileURL, let position = Library.shared.entry(for: fileURL)?.position else { return }
         switch document.wrappedValue.kind {
         case "epub":
@@ -46,7 +51,11 @@ struct ContentView: View {
         }
         .frame(minWidth: 640, minHeight: 480)
         .background(Color(nsColor: ground))
-        .modifier(Night(on: !["pdf", "epub", "markdown", "text"].contains(document.kind)))
+        .modifier(Night(on: !["pdf", "epub", "markdown", "text"].contains(document.kind) || (document.kind == "epub" && settings.isDark == true)))
+        .onChange(of: settings) { _, new in
+            ReadingDefaults.save(new)
+            if let fileURL { Library.shared.recordSettings(fileURL, new) }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 if let panel = activePanel {
@@ -75,6 +84,14 @@ struct ContentView: View {
         .onChange(of: active) { _, now in if now == .contents { entries = Contents.entries(for: document) } }
         .onChange(of: document.data) { if active == .contents { entries = Contents.entries(for: document) } }
         .toolbar {
+            if document.kind == "epub" {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showSettings.toggle() } label: { Text("Aa").font(.system(size: 14, design: .serif)) }
+                        .help("Text size, spacing, column and theme")
+                        .accessibilityIdentifier("typeSettings")
+                        .popover(isPresented: $showSettings, arrowEdge: .bottom) { TypeSettingsPanel(settings: $settings) }
+                }
+            }
             ToolbarItem(placement: .status) {
                 Text(status)
                     .font(.system(.caption, design: .monospaced))
@@ -92,7 +109,7 @@ struct ContentView: View {
         case "epub": EpubPane(document: document, chapter: $chapter, find: jump,
                               marks: marks.filter { $0.target == chapter }.map(\.quote), onSelect: { selection = $0 },
                               resume: resume?.chapter == chapter ? resume?.anchor : nil,
-                              onPlace: reached)
+                              onPlace: reached, settings: settings)
         case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
         case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
         default: HexPane(document: document, jump: jump)
@@ -104,7 +121,8 @@ struct ContentView: View {
     private var ground: NSColor {
         switch document.kind {
         case "pdf": .underPageBackgroundColor
-        case "epub", "markdown", "text": Theme.paper.window
+        case "epub": settings.palette.window
+        case "markdown", "text": Theme.paper.window
         default: Theme.night.window
         }
     }

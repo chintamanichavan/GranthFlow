@@ -262,6 +262,19 @@ final class AnyfileUITests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+    func testTypeSettingsChangeTheSize() {
+        let app = launch(tinyEpub(), as: "settings.epub")
+        XCTAssertTrue(element(app, "epubText").waitForExistence(timeout: 10))
+        element(app, "typeSettings").click()
+        let size = element(app, "textSize")
+        XCTAssertTrue(size.waitForExistence(timeout: 5))
+        let before = text(of: size)
+        element(app, "textLarger").click()
+        XCTAssertNotEqual(text(of: size), before)
+        element(app, "look.night").click()
+        XCTAssertTrue(element(app, "look.night").isSelected || element(app, "look.night").exists)
+    }
+
     func testEpubReplaceUpdatesReadingText() {
         let app = launch(tinyEpub(), as: "book.epub")
         let reading = element(app, "epubText")

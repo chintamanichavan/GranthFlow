@@ -26,6 +26,8 @@ final class PageRenderer {
     private let indexCount: Int
     private var turning: MTLTexture?, beneath: MTLTexture?
     private var aspect: Float = 1.4
+    /// The paper colour, for the back of the turning page; follows the reading theme.
+    var paper: NSColor = Theme.paper.window
     static let pixelFormat = MTLPixelFormat.bgra8Unorm
     /// How far the camera stands from the page, in page widths. Nearer exaggerates the lift.
     static let cameraDistance: Float = 3.4
@@ -103,7 +105,7 @@ final class PageRenderer {
 
         let verts = PageGeometry.vertices(progress: progress, aspect: aspect)
         let edge = PageGeometry.edge(progress: progress, aspect: aspect)
-        var u = PageUniforms(viewProjection: Self.viewProjection(aspect: aspect), paper: Self.paper,
+        var u = PageUniforms(viewProjection: Self.viewProjection(aspect: aspect), paper: Self.rgba(paper),
                              light: simd_normalize(SIMD3<Float>(-0.45, 0.5, 1)), aspect: aspect,
                              shadow: sin(.pi * progress), rows: Int32(PageGeometry.rows))
         enc.setDepthStencilState(depthState)
@@ -149,9 +151,9 @@ final class PageRenderer {
 
     func makeCommandBuffer() -> MTLCommandBuffer? { queue.makeCommandBuffer() }
 
-    /// The paper colour, in the same sRGB values the page images carry.
-    static var paper: SIMD4<Float> {
-        let c = Theme.paper.window.usingColorSpace(.sRGB) ?? .white
+    /// A colour in the same sRGB values the page images carry.
+    static func rgba(_ colour: NSColor) -> SIMD4<Float> {
+        let c = colour.usingColorSpace(.sRGB) ?? .white
         return [Float(c.redComponent), Float(c.greenComponent), Float(c.blueComponent), 1]
     }
 

@@ -77,6 +77,8 @@ final class PageTurnView: NSView {
     var preview: ((Int) -> CGImage?)?
     /// Called when a swipe has turned the page, to change the chapter underneath.
     var commit: ((Int) -> Void)?
+    /// The paper colour, for the back of the turning page.
+    var paper: NSColor = Theme.paper.window { didSet { renderer?.paper = paper } }
 
     private let renderer = PageRenderer()
     /// The turn is drawn in views of its own placed above the scroll view. Layers added straight to
