@@ -28,7 +28,8 @@ struct EpubPane: View {
     var onSelect: (Selection?) -> Void = { _ in }
     /// Where to resume in the chapter on show: the first character that was on screen.
     var resume: Int? = nil
-    var onAnchor: (Int) -> Void = { _ in }
+    /// The reading place: the first character on screen, and the words from there to the chapter's end.
+    var onPlace: (Int, Int) -> Void = { _, _ in }
     @State private var text = ""
     @State private var title = ""
     @State private var loaded: Int?                 // the chapter whose text is in `text`
@@ -40,7 +41,7 @@ struct EpubPane: View {
                         guard let quote, let loaded else { return onSelect(nil) }
                         onSelect(Selection(quote: quote, target: loaded, place: title.isEmpty ? "Chapter \(loaded)" : title))
                     },
-                    onTurn: turn(by:), peek: peek(_:), resume: resume, onAnchor: onAnchor)
+                    onTurn: turn(by:), peek: peek(_:), resume: resume, onPlace: onPlace)
             .frame(minWidth: 320)
             .overlay(alignment: .leading) { TurnArrow(direction: -1, enabled: neighbour(-1) != nil) { turn(by: -1) } }
             .overlay(alignment: .trailing) { TurnArrow(direction: 1, enabled: neighbour(1) != nil) { turn(by: 1) } }
@@ -102,8 +103,8 @@ struct ReadingText: NSViewRepresentable {
     var peek: (Int) -> Page? = { _ in nil }
     /// A character to bring to the top once, when this chapter's text first appears.
     var resume: Int? = nil
-    /// The first character on screen, reported once scrolling has rested.
-    var onAnchor: (Int) -> Void = { _ in }
+    /// The first character on screen and the words after it, reported once scrolling has rested.
+    var onPlace: (Int, Int) -> Void = { _, _ in }
 
     struct Page {
         let text: String
@@ -185,9 +186,10 @@ struct ReadingText: NSViewRepresentable {
             }
             context.coordinator.lastMarks = nil
             if let old, let previous, let number { turner.turn(from: old, forward: number > previous) }
+            context.coordinator.reportSoon(tv)                        // a new chapter is a new place
         }
         context.coordinator.onSelect = onSelect
-        context.coordinator.onAnchor = onAnchor
+        context.coordinator.onPlace = onPlace
         if marks != context.coordinator.lastMarks {
             context.coordinator.lastMarks = marks
             Highlights.apply(marks, to: tv)
@@ -211,7 +213,7 @@ struct ReadingText: NSViewRepresentable {
         var shown: [String] = []
         var lastMarks: [String]?
         var onSelect: (String?) -> Void = { _ in }
-        var onAnchor: (Int) -> Void = { _ in }
+        var onPlace: (Int, Int) -> Void = { _, _ in }
         var resumed = false
         private var pending: DispatchWorkItem?
         private var token: NSObjectProtocol?
@@ -222,14 +224,19 @@ struct ReadingText: NSViewRepresentable {
             token = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification, object: scroll.contentView,
                                                            queue: .main) { [weak self, weak scroll] _ in
                 guard let self, let tv = scroll?.documentView as? NSTextView else { return }
-                self.pending?.cancel()
-                let work = DispatchWorkItem { [weak self, weak tv] in
-                    guard let self, let tv else { return }
-                    self.onAnchor(ReadingPlace.topCharacter(in: tv))
-                }
-                self.pending = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+                self.reportSoon(tv)
             }
+        }
+
+        func reportSoon(_ tv: NSTextView) {
+            pending?.cancel()
+            let work = DispatchWorkItem { [weak self, weak tv] in
+                guard let self, let tv else { return }
+                let anchor = ReadingPlace.topCharacter(in: tv)
+                self.onPlace(anchor, ReadingTime.words(in: tv.string, from: anchor))
+            }
+            pending = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
         }
 
         deinit { if let token { NotificationCenter.default.removeObserver(token) } }

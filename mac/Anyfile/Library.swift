@@ -13,6 +13,8 @@ struct LibraryEntry: Codable, Equatable, Identifiable {
     /// Where in that chapter: the first character on screen, so reading resumes at the same
     /// sentence even after the text size or window width changes. Nil means the chapter's start.
     var anchor: Int?
+    /// Words from there to the end of the chapter, for "6 min left in chapter".
+    var wordsLeft: Int?
 
     var id: String { path }
     var url: URL { URL(fileURLWithPath: path) }
@@ -85,16 +87,21 @@ final class Library {
     func recordPosition(_ url: URL, position: Int, total: Int) {
         guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }),
               entries[i].position != position || entries[i].total != total else { return }
-        if entries[i].position != position { entries[i].anchor = nil }     // a new chapter starts at its top
+        if entries[i].position != position {                                // a new chapter starts at its top
+            entries[i].anchor = nil
+            entries[i].wordsLeft = nil
+        }
         entries[i].position = position
         entries[i].total = total
         save()
     }
 
-    /// Records the first character on screen in the chapter being read.
-    func recordAnchor(_ url: URL, anchor: Int) {
-        guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }), entries[i].anchor != anchor else { return }
+    /// Records the first character on screen in the chapter being read, and the words after it.
+    func recordAnchor(_ url: URL, anchor: Int, wordsLeft: Int? = nil) {
+        guard let i = entries.firstIndex(where: { $0.path == url.standardizedFileURL.path }),
+              entries[i].anchor != anchor || entries[i].wordsLeft != wordsLeft else { return }
         entries[i].anchor = anchor
+        entries[i].wordsLeft = wordsLeft
         save()
     }
 

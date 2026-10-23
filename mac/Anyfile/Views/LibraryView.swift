@@ -143,7 +143,11 @@ private struct Hero: View {
                 if let progress = entry.progress {
                     ProgressView(value: progress).tint(.white).frame(maxWidth: 260).padding(.top, 8)
                 }
-                if let text = entry.progressText { Text(text).font(.callout).opacity(0.7) }
+                if let text = entry.progressText {
+                    Text([text, entry.wordsLeft.map { ReadingTime.phrase(wordsLeft: $0, wordsPerMinute: ReadingClock.shared.speed.wordsPerMinute) }]
+                        .compactMap { $0 }.joined(separator: "  ·  "))
+                        .font(.callout).opacity(0.7)
+                }
                 Button(action: resume) {
                     Text("Resume").font(.callout.weight(.semibold)).padding(.horizontal, 22).padding(.vertical, 8)
                         .background(.white, in: Capsule())

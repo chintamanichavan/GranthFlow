@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var markStatus = ""
     /// Where reading stopped inside the saved chapter, applied when that chapter first appears.
     @State private var resume: (chapter: Int, anchor: Int)?
+    @State private var wordsLeft: Int?
+    @State private var chapterTotal = 0
     private let markStore = MarkStore.shared
 
     /// The place reading stopped is restored here, before any pane appears: the EPUB pane picks
@@ -74,7 +76,7 @@ struct ContentView: View {
         .onChange(of: document.data) { if active == .contents { entries = Contents.entries(for: document) } }
         .toolbar {
             ToolbarItem(placement: .status) {
-                Text("\(document.kind)  ·  \(ByteCountFormatter.string(fromByteCount: Int64(document.data.count), countStyle: .file))")
+                Text(status)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("kindLabel")
@@ -90,7 +92,7 @@ struct ContentView: View {
         case "epub": EpubPane(document: document, chapter: $chapter, find: jump,
                               marks: marks.filter { $0.target == chapter }.map(\.quote), onSelect: { selection = $0 },
                               resume: resume?.chapter == chapter ? resume?.anchor : nil,
-                              onAnchor: { anchor in if let fileURL { Library.shared.recordAnchor(fileURL, anchor: anchor) } })
+                              onPlace: reached)
         case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
         case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.quote), onSelect: { selection = $0 })
         default: HexPane(document: document, jump: jump)
@@ -125,7 +127,26 @@ struct ContentView: View {
         }
     }
 
+    /// The title bar's line: the chapter and the time left in it for a book, kind and size otherwise.
+    private var status: String {
+        if document.kind == "epub", let chapter, chapterTotal > 0 {
+            let place = "Chapter \(chapter) of \(chapterTotal)"
+            guard let wordsLeft else { return place }
+            return place + "  ·  " + ReadingTime.phrase(wordsLeft: wordsLeft, wordsPerMinute: ReadingClock.shared.speed.wordsPerMinute)
+        }
+        return "\(document.kind)  ·  \(ByteCountFormatter.string(fromByteCount: Int64(document.data.count), countStyle: .file))"
+    }
+
+    /// A new reading place in a book: remembered, and timed to learn the reader's speed.
+    private func reached(_ anchor: Int, _ words: Int) {
+        wordsLeft = words
+        guard let fileURL, let chapter else { return }
+        Library.shared.recordAnchor(fileURL, anchor: anchor, wordsLeft: words)
+        ReadingClock.shared.place(book: fileURL.path, chapter: chapter, wordsLeft: words)
+    }
+
     private func remember() {
+        if document.kind == "epub", chapterTotal == 0 { chapterTotal = chapterCount }
         if let fileURL { Library.shared.recordOpened(fileURL, kind: document.kind) }
         followRequest()
     }

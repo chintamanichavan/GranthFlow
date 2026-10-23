@@ -237,7 +237,7 @@ final class AnyfileUITests: XCTestCase {
         let app = launch(tinyEpub(), as: "book.epub")
         let reading = element(app, "epubText")
         XCTAssertTrue(reading.waitForExistence(timeout: 10))
-        XCTAssertTrue(text(of: element(app, "kindLabel")).contains("epub"))
+        XCTAssertTrue(text(of: element(app, "kindLabel")).contains("Chapter 1 of 2"))       // a book shows its place, not its kind
         expectation(for: NSPredicate(format: "value CONTAINS %@", "Hello book & reader."), evaluatedWith: reading)
         waitForExpectations(timeout: 5)
         XCTAssertFalse(element(app, "contentsPanel").exists)          // chapters stay out of the way until asked for
