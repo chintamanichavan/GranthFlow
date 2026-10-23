@@ -266,7 +266,11 @@ private struct MarkCard: View {
             HStack(alignment: .top, spacing: 12) {
                 RoundedRectangle(cornerRadius: 1.5).fill(Color(nsColor: mark.colour.paint)).frame(width: 3)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("“\(mark.quote)”").font(.system(size: 14, design: .serif)).lineLimit(3)
+                    Group {
+                        if mark.kind == "binary" { Text(mark.quote).font(.system(size: 12, design: .monospaced)) }
+                        else { Text("“\(mark.quote)”").font(.system(size: 14, design: .serif)) }
+                    }
+                    .lineLimit(3)
                         .foregroundStyle(Color(nsColor: Theme.library.label))
                     Text("\(mark.name)  ·  \(mark.place)").font(.caption).lineLimit(1)
                         .foregroundStyle(Color(nsColor: Theme.library.secondary))

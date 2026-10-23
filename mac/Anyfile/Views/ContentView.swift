@@ -112,7 +112,7 @@ struct ContentView: View {
                               onPlace: reached, settings: settings)
         case "markdown": MarkdownPane(document: $document, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 })
         case "text": TextPane(text: $document.text, jump: jump, marks: marks.map(\.paint), onSelect: { selection = $0 })
-        default: HexPane(document: document, jump: jump)
+        default: HexPane(document: document, jump: jump, marks: marks, onSelect: { selection = $0 })
         }
     }
 

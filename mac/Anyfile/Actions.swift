@@ -30,9 +30,8 @@ enum DocumentAction: String, CaseIterable, Identifiable {
     /// visible so the bar never changes shape.
     func unavailableReason(for kind: String) -> String? {
         switch self {
-        case .contents: Contents.hasContents(kind: kind) ? nil : "This kind of file has no contents to list"
-        case .mark: kind == "binary" ? "Bytes cannot be marked yet; Find can locate them" : nil
-        case .find, .edit, .info: nil
+        case .contents where !Contents.hasContents(kind: kind): "This kind of file has no contents to list"
+        case .contents, .mark, .find, .edit, .info: nil
         }
     }
 }
@@ -70,6 +69,6 @@ enum CommandRole {
 enum MarkHint {
     /// What to do when Mark is pressed with nothing selected.
     static func text(kind: String) -> String {
-        "Select a passage, then press Mark"
+        kind == "binary" ? "Click a byte, Shift-click to extend, then press Mark" : "Select a passage, then press Mark"
     }
 }

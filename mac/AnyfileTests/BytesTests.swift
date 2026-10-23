@@ -46,7 +46,7 @@ final class BytesTests: XCTestCase {
     func testFoundBytesAreHighlighted() {
         let row = HexRow(data: Data([0, 0x7f, 0x45, 0]), offset: 0, highlight: 1..<3).line
         let painted = row.runs.filter { $0.backgroundColor != nil }.map { String(row[$0.range].characters) }
-        XCTAssertEqual(painted.joined(), "7f 45 ")
+        XCTAssertEqual(painted.joined(), "7f 45 ·E")                                // the hex and the text column alike
     }
 
     /// The view builds 256 coloured rows whenever it moves. Prints the time.
@@ -58,6 +58,50 @@ final class BytesTests: XCTestCase {
         print(String(format: "256 hex rows: %.4f s", seconds))
         XCTAssertLessThan(seconds, 0.1)
     }
+
+    /// The column a byte is drawn at in a real row maps back to that byte, in both columns.
+    func testClickColumnsMatchTheRowAsDrawn() {
+        let line = String(HexRow(data: Data(0..<16), offset: 0, highlight: nil).line.characters)
+        let chars = Array(line)
+        for i in 0..<16 {
+            let hex = String(format: "%02x", i)
+            let col = (0..<chars.count - 1).first { c in c >= 11 && String(chars[c...c + 1]) == hex && (c - 11) % 3 != 2 || false }
+            XCTAssertNotNil(col)
+            if let col { XCTAssertEqual(HexLayout.byte(atColumn: col), i, "hex \(hex) at \(col)") }
+        }
+        let textStart = line.count - 16
+        XCTAssertEqual(HexLayout.byte(atColumn: textStart), 0)
+        XCTAssertEqual(HexLayout.byte(atColumn: textStart + 15), 15)
+        XCTAssertNil(HexLayout.byte(atColumn: 3))                                   // the offset column
+        XCTAssertNil(HexLayout.byte(atColumn: 13))                                  // the space between two bytes
+        XCTAssertGreaterThan(HexLayout.characterWidth, 5)
+    }
+
+    func testByteMarksSpellTheirBytesAndLength() {
+        let data = Data([0x00, 0x7f, 0x45, 0x4c, 0x46, 0x02])
+        let s = ByteMark.selection(of: 1..<5, in: data)
+        XCTAssertEqual(s.quote, "7f 45 4c 46")
+        XCTAssertEqual(s.target, 1)
+        XCTAssertEqual(s.place, "0x1 · 4 bytes")
+        XCTAssertEqual(ByteMark.length(of: s.quote, place: s.place), 4)
+        XCTAssertEqual(ByteMark.selection(of: 5..<6, in: data).place, "0x5 · 1 byte")
+        let long = ByteMark.selection(of: 0..<200, in: Data(count: 200))
+        XCTAssertTrue(long.quote.hasSuffix(" …"))
+        XCTAssertEqual(ByteMark.length(of: long.quote, place: long.place), 200)     // the length is kept, not just what is shown
+        XCTAssertEqual(ByteMark.length(of: "7f 45"), 2)
+    }
+
+    func testMarksAndTheSelectionArePaintedInTheirColours() {
+        let row = HexRow(data: Data(0..<16), offset: 0, highlight: nil,
+                         paints: [BytePaint(range: 2..<4, colour: MarkColour.pink.paint), BytePaint(range: 3..<5, colour: .selectedContentBackgroundColor)])
+        let line = row.line
+        let painted = line.runs.compactMap { run in run.backgroundColor.map { (String(line[run.range].characters), $0) } }
+        let hex = painted.filter { $0.0.contains(" ") }
+        XCTAssertEqual(hex.map(\.0), ["02 ", "03 04 "])                              // the mark, then the selection over it
+        XCTAssertEqual(hex[0].1, Color(nsColor: MarkColour.pink.paint).opacity(0.85))
+        XCTAssertEqual(hex[1].1, Color(nsColor: .selectedContentBackgroundColor).opacity(0.85))   // the selection wins where they overlap
+    }
+
 }
 
 @MainActor

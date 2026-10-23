@@ -74,7 +74,11 @@ struct MarkRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Button(action: choose) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("“\(mark.quote)”").font(.system(size: 14, design: .serif)).lineLimit(3)
+                        Group {
+                            if mark.kind == "binary" { Text(mark.quote).font(.system(size: 12, design: .monospaced)) }     // bytes, not words
+                            else { Text("“\(mark.quote)”").font(.system(size: 14, design: .serif)) }
+                        }
+                        .lineLimit(3)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Text(caption ?? mark.place).font(.caption).foregroundStyle(.secondary)
                     }

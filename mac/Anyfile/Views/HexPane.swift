@@ -6,7 +6,13 @@ struct HexPane: View {
     let document: AnyfileDocument
     /// A byte offset from Find.
     var jump: Jump? = nil
+    /// Marks in this file, painted in their colours.
+    var marks: [Mark] = []
+    var onSelect: (Selection?) -> Void = { _ in }
     @State private var offset: Int = 0
+    /// Bytes chosen by clicking, and Shift-clicking to extend; Mark keeps them.
+    @State private var selection: Range<Int>?
+    @State private var anchor: Int?
     @State private var jumpText: String = "0x0"
     /// Rows drawn at a time; the strip and the offset field move the window over the file.
     private let pageRows = 256
@@ -19,7 +25,10 @@ struct HexPane: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 3) {
                             ForEach(rows, id: \.self) { row in
-                                HexRow(data: document.data, offset: row, highlight: highlighted).id(row)
+                                HexRow(data: document.data, offset: row, highlight: highlighted, paints: paints) { byte, extend in
+                                    choose(byte, extend: extend)
+                                }
+                                .id(row)
                             }
                         }
                         .padding(.horizontal, 22)
@@ -70,6 +79,32 @@ struct HexPane: View {
         return HexLayout.rows(from: start, count: pageRows, total: document.data.count)
     }
 
+    /// Marks in their colours, then the selection on top.
+    private var paints: [BytePaint] {
+        var out = marks.compactMap { m -> BytePaint? in
+            let n = ByteMark.length(of: m.quote, place: m.place)
+            return n > 0 ? BytePaint(range: m.target..<(m.target + n), colour: m.colour.paint) : nil
+        }
+        if let selection { out.append(BytePaint(range: selection, colour: .selectedContentBackgroundColor)) }
+        return out
+    }
+
+    /// A click picks a byte; a Shift-click extends the selection from the first byte picked.
+    private func choose(_ byte: Int?, extend: Bool) {
+        guard let byte, byte < document.data.count else {
+            selection = nil
+            anchor = nil
+            return onSelect(nil)
+        }
+        if extend, let anchor {
+            selection = min(anchor, byte)..<(max(anchor, byte) + 1)
+        } else {
+            anchor = byte
+            selection = byte..<(byte + 1)
+        }
+        if let selection { onSelect(ByteMark.selection(of: selection, in: document.data)) }
+    }
+
     /// The bytes Find matched, painted like a mark.
     private var highlighted: Range<Int>? {
         guard let jump, let q = jump.query else { return nil }
@@ -92,13 +127,33 @@ struct HexPane: View {
     }
 }
 
+/// A run of bytes painted in a colour: a mark, or the selection.
+struct BytePaint: Equatable {
+    let range: Range<Int>
+    let colour: NSColor
+}
+
 struct HexRow: View {
     let data: Data
     let offset: Int
     let highlight: Range<Int>?
+    var paints: [BytePaint] = []
+    /// Called with the byte clicked (nil for a click between bytes) and whether Shift was down.
+    var tap: ((Int?, Bool) -> Void)? = nil
 
     var body: some View {
-        Text(line).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+        Text(line).font(.system(size: 12, design: .monospaced))
+            .onTapGesture(coordinateSpace: .local) { point in
+                let column = Int(point.x / HexLayout.characterWidth)
+                let shift = NSEvent.modifierFlags.contains(.shift)
+                tap?(HexLayout.byte(atColumn: column).map { offset + $0 }, shift)
+            }
+    }
+
+    /// The paint over a byte: Find's match, else the last paint that covers it.
+    private func paint(at index: Int) -> NSColor? {
+        if let highlight, highlight.contains(index) { return Theme.mark }
+        return paints.last { $0.range.contains(index) }?.colour
     }
 
     var line: AttributedString {
@@ -113,9 +168,11 @@ struct HexRow: View {
             let colour = Self.colour(ByteClass(b))
             hex.foregroundColor = colour
             glyph.foregroundColor = colour
-            if let highlight, highlight.contains(offset + i) {
-                hex.backgroundColor = Color(nsColor: Theme.mark).opacity(0.85)
+            if let paint = paint(at: offset + i) {
+                hex.backgroundColor = Color(nsColor: paint).opacity(0.85)
                 hex.foregroundColor = Color(nsColor: Theme.night.window)
+                glyph.backgroundColor = Color(nsColor: paint).opacity(0.85)
+                glyph.foregroundColor = Color(nsColor: Theme.night.window)
             }
             out += hex
             text += glyph
