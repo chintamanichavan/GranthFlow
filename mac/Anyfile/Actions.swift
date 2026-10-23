@@ -70,6 +70,6 @@ enum CommandRole {
 enum MarkHint {
     /// What to do when Mark is pressed with nothing selected.
     static func text(kind: String) -> String {
-        kind == "markdown" ? "Select a passage in Edit, then press Mark" : "Select a passage, then press Mark"
+        "Select a passage, then press Mark"
     }
 }

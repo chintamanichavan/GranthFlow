@@ -80,9 +80,12 @@ final class ReadingTests: XCTestCase {
 
     func testMarkdownPreviewUsesReadingType() {
         let r = MarkdownRenderer.render("# Title\n\nSome **bold** words.\n")
-        let fonts = r.runs.compactMap(\.font)
-        XCTAssertTrue(fonts.contains(MarkdownRenderer.body))
-        XCTAssertTrue(r.runs.contains { $0.inlinePresentationIntent == .stronglyEmphasized })   // bold survives
+        let ns = r.string as NSString
+        let some = r.attribute(.font, at: ns.range(of: "Some").location, effectiveRange: nil) as! NSFont
+        let bold = r.attribute(.font, at: ns.range(of: "bold").location, effectiveRange: nil) as! NSFont
+        XCTAssertEqual(some.pointSize, ReadingStyle.bodySize)
+        XCTAssertTrue(some.familyName?.contains("New York") == true || some.familyName == ".AppleSystemUIFontSerif", some.familyName ?? "")
+        XCTAssertTrue(bold.fontDescriptor.symbolicTraits.contains(.bold))                                   // bold survives
     }
 }
 

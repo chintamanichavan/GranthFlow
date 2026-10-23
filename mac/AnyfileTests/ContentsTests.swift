@@ -81,13 +81,18 @@ final class ContentsTests: XCTestCase {
         XCTAssertEqual(TextPane.range(ofLine: 2, in: "é😀\nx"), NSRange(location: 4, length: 1))   // UTF-16 offsets
     }
 
-    func testPreviewSectionsStartAtHeadingLinesOutsideFences() {
+    func testEveryHeadingInThePreviewCanBeJumpedTo() {
         let source = "intro\n# One\nbody\n```\n# not a heading\n```\n## Two\n"
-        let sections = MarkdownRenderer.sections(source)
-        XCTAssertEqual(sections.map(\.line), [1, 2, 7])
-        XCTAssertTrue(String(sections[1].text.characters).contains("# not a heading"))
+        let preview = MarkdownRenderer.render(source)
         let outline = Contents.parseOutline(Engine.run("outline", args: [], on: Data(source.utf8), name: "s.md", kind: "markdown").output)
-        XCTAssertEqual(Set(outline.map(\.target)).subtracting(sections.map(\.line)), [])   // every heading has a section to scroll to
-        XCTAssertEqual(MarkdownRenderer.sections("# Only\n").map(\.line), [1])
+        XCTAssertEqual(outline.map(\.target), [2, 7])
+        for entry in outline {
+            let c = try! XCTUnwrap(MarkdownRenderer.character(forLine: entry.target, in: preview))
+            XCTAssertEqual(MarkdownRenderer.sourceLine(at: c, in: preview), entry.target)                     // lands on the heading
+        }
+        let fenced = (preview.string as NSString).range(of: "# not a heading").location
+        XCTAssertEqual(MarkdownRenderer.sourceLine(at: fenced, in: preview), 5)                             // kept, as code, on its own line
+        XCTAssertFalse(preview.string.contains("```"))
     }
+
 }

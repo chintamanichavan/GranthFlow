@@ -48,7 +48,7 @@ final class DocumentTests: XCTestCase {
         XCTAssertNil(MarkdownRenderer.headingLevel("#notaheading"))
         XCTAssertNil(MarkdownRenderer.headingLevel("####### seven"))
         let rendered = MarkdownRenderer.render("# T\n\n```\n# code\n```\n- item\n")
-        let plain = String(rendered.characters)
+        let plain = rendered.string
         XCTAssertTrue(plain.hasPrefix("T\n"))
         XCTAssertTrue(plain.contains("# code"))         // fenced line kept verbatim
         XCTAssertTrue(plain.contains("•  item"))

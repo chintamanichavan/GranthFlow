@@ -84,6 +84,6 @@ final class MarkTests: XCTestCase {
         XCTAssertNil(DocumentAction.mark.unavailableReason(for: "pdf"))
         XCTAssertNil(DocumentAction.mark.unavailableReason(for: "text"))
         XCTAssertNotNil(DocumentAction.mark.unavailableReason(for: "binary"))
-        XCTAssertTrue(MarkHint.text(kind: "markdown").contains("Edit"))
+        XCTAssertEqual(MarkHint.text(kind: "markdown"), "Select a passage, then press Mark")     // the preview marks too
     }
 }

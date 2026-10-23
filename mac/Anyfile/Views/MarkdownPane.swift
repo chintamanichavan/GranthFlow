@@ -1,5 +1,7 @@
-// Markdown: edit the source, or read a styled preview built from the engine's outline.
+// Markdown: edit the source, or read it set as a page. The preview is an AppKit text view, like a
+// book's, so a passage selected in it can be marked; every line of it knows its line in the source.
 import SwiftUI
+import AppKit
 
 struct MarkdownPane: View {
     @Binding var document: AnyfileDocument
@@ -19,34 +21,10 @@ struct MarkdownPane: View {
             .frame(width: 180)
             .padding(6)
             .accessibilityIdentifier("markdownMode")
-            .onChange(of: showPreview) { _, preview in
-                if preview { onSelect(nil) }                // the preview's text cannot report a selection
-            }
+            .onChange(of: showPreview) { onSelect(nil) }               // a selection belongs to the mode it was made in
             Divider()
             if showPreview {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(MarkdownRenderer.sections(document.text), id: \.line) { section in
-                                Text(section.text)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .id(section.line)
-                            }
-                        }
-                        .frame(maxWidth: ReadingStyle.measure)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 40)
-                        .frame(maxWidth: .infinity)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityIdentifier("markdownPreview")
-                    }
-                    .background(Color(nsColor: Theme.paper.window))
-                    .foregroundStyle(Color(nsColor: Theme.paper.label))
-                    .onChange(of: jump) { _, jump in
-                        if let jump { withAnimation { proxy.scrollTo(jump.target, anchor: .top) } }
-                    }
-                }
+                MarkdownPreview(source: document.text, jump: jump, marks: marks, onSelect: onSelect)
             } else {
                 TextPane(text: $document.text, jump: jump, marks: marks, onSelect: onSelect)
             }
@@ -54,57 +32,72 @@ struct MarkdownPane: View {
     }
 }
 
-enum MarkdownRenderer {
-    /// Headings get size and weight; everything else gets inline styling from Foundation's parser.
-    /// Reading type, as in EPUB chapters.
-    static let body = Font(Theme.readingFont(size: ReadingStyle.bodySize) as CTFont)
+extension NSAttributedString.Key {
+    /// The 1-based line of the Markdown source a stretch of the preview came from.
+    static let sourceLine = NSAttributedString.Key("anyfile.sourceLine")
+}
 
-    static func render(_ source: String) -> AttributedString {
-        var out = AttributedString()
+enum MarkdownRenderer {
+    /// Headings set large, lists with bullets, code in mono, inline bold, italic, code and links from
+    /// Foundation's parser; reading type throughout. Fence lines are left out; every other source line
+    /// becomes one line of the preview, tagged with its line number.
+    static func render(_ source: String, language: String? = nil) -> NSAttributedString {
+        let out = NSMutableAttributedString()
+        let body = Theme.readingFont(size: ReadingStyle.bodySize, language: language)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineHeightMultiple = 1.35
+        paragraph.paragraphSpacing = 4
         var inFence = false
-        for rawLine in source.split(separator: "\n", omittingEmptySubsequences: false) {
+        for (i, rawLine) in source.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
             let line = String(rawLine)
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            var piece: AttributedString
+            let piece: NSMutableAttributedString
             if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
                 inFence.toggle()
                 continue
             } else if inFence {
-                piece = AttributedString(line)
-                piece.font = .system(size: 13, design: .monospaced)
-                piece.foregroundColor = Color(nsColor: Theme.paper.secondary)
+                piece = NSMutableAttributedString(string: line, attributes: [
+                    .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular), .foregroundColor: Theme.paper.secondary])
             } else if let level = headingLevel(trimmed) {
                 let text = trimmed.drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces)
-                piece = AttributedString(text)
-                piece.font = Font(Theme.readingFont(size: [30, 23, 19, 17, 15, 14][level - 1], weight: .semibold) as CTFont)
+                let size: CGFloat = [30, 23, 19, 17, 15, 14][level - 1]
+                piece = NSMutableAttributedString(string: text, attributes: [
+                    .font: Theme.readingFont(size: size, weight: .semibold, language: language), .foregroundColor: Theme.paper.label])
             } else if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") || trimmed.hasPrefix("+ ") {
-                piece = AttributedString("  •  ") + inline(String(trimmed.dropFirst(2)))
-                piece.font = body          // bold, italic and code come from the inline intents
+                piece = NSMutableAttributedString(string: "  •  ", attributes: [.font: body, .foregroundColor: Theme.paper.label])
+                piece.append(inline(String(trimmed.dropFirst(2)), body: body))
             } else {
-                piece = inline(line)
-                piece.font = body          // bold, italic and code come from the inline intents
+                piece = inline(line, body: body)
             }
-            out += piece
-            out += AttributedString("\n")
+            piece.append(NSAttributedString(string: "\n", attributes: [.font: body]))
+            let all = NSRange(location: 0, length: piece.length)
+            piece.addAttribute(.sourceLine, value: i + 1, range: all)
+            piece.addAttribute(.paragraphStyle, value: paragraph, range: all)
+            out.append(piece)
         }
+        ReadingStyle.sizeDevanagari(in: out, language: language)
         return out
     }
 
-    /// The source split before each heading outside a code fence, each piece rendered, keyed by the
-    /// 1-based line it starts on. Contents targets the same line numbers, so the preview can scroll there.
-    static func sections(_ source: String) -> [(line: Int, text: AttributedString)] {
-        let lines = source.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        var starts = [0]
-        var inFence = false
-        for (i, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") { inFence.toggle() }
-            else if !inFence, i > 0, headingLevel(trimmed) != nil { starts.append(i) }
+    /// One line's inline Markdown, with bold, italic and code turned into fonts and links kept.
+    static func inline(_ s: String, body: NSFont) -> NSMutableAttributedString {
+        let parsed = (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
+        let out = NSMutableAttributedString()
+        for run in parsed.runs {
+            let text = String(parsed[run.range].characters)
+            let intent = run.inlinePresentationIntent ?? []
+            var font = body
+            if intent.contains(.code) {
+                font = .monospacedSystemFont(ofSize: body.pointSize * 0.88, weight: .regular)
+            } else {
+                if intent.contains(.stronglyEmphasized) { font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask) }
+                if intent.contains(.emphasized) { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
+            }
+            var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: Theme.paper.label]
+            if let link = run.link { attributes[.link] = link }
+            out.append(NSAttributedString(string: text, attributes: attributes))
         }
-        return starts.enumerated().map { n, start in
-            let end = n + 1 < starts.count ? starts[n + 1] : lines.count
-            return (start + 1, render(lines[start..<end].joined(separator: "\n")))
-        }
+        return out
     }
 
     static func headingLevel(_ line: String) -> Int? {
@@ -114,7 +107,73 @@ enum MarkdownRenderer {
         return rest.isEmpty || rest.first == " " ? hashes : nil
     }
 
-    private static func inline(_ s: String) -> AttributedString {
-        (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
+    /// The source line a character of the preview came from.
+    static func sourceLine(at character: Int, in text: NSAttributedString) -> Int? {
+        guard text.length > 0 else { return nil }
+        return text.attribute(.sourceLine, at: min(max(character, 0), text.length - 1), effectiveRange: nil) as? Int
+    }
+
+    /// The first character of the preview that came from `line` or after it: where a heading's jump lands.
+    static func character(forLine line: Int, in text: NSAttributedString) -> Int? {
+        var found: Int?
+        text.enumerateAttribute(.sourceLine, in: NSRange(location: 0, length: text.length)) { value, range, stop in
+            if let l = value as? Int, l >= line { found = range.location; stop.pointee = true }
+        }
+        return found
+    }
+}
+
+/// The preview as a page: the reading view's column and paper, selectable, painted with marks.
+struct MarkdownPreview: NSViewRepresentable {
+    let source: String
+    var jump: Jump?
+    var marks: [Paint]
+    var onSelect: (Selection?) -> Void
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = ReadingText.makePage()
+        let tv = scroll.documentView as! PaperTextView
+        tv.setAccessibilityIdentifier("markdownPreview")
+        tv.delegate = context.coordinator
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        let tv = scroll.documentView as! NSTextView
+        context.coordinator.onSelect = onSelect
+        if context.coordinator.source != source {
+            context.coordinator.source = source
+            tv.textStorage?.setAttributedString(MarkdownRenderer.render(source))
+            context.coordinator.marks = nil
+        }
+        if marks != context.coordinator.marks {
+            context.coordinator.marks = marks
+            Highlights.apply(marks, to: tv)
+        }
+        if jump != context.coordinator.jump {
+            context.coordinator.jump = jump
+            if let jump, let storage = tv.textStorage, let c = MarkdownRenderer.character(forLine: jump.target, in: storage) {
+                ReadingPlace.scroll(tv, toCharacter: c)
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var source: String?
+        var marks: [Paint]?
+        var jump: Jump?
+        var onSelect: (Selection?) -> Void = { _ in }
+
+        /// A selection in the preview becomes a mark on the source line it starts on.
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView, let storage = tv.textStorage else { return }
+            let r = tv.selectedRange()
+            let report = onSelect
+            guard r.length > 0, let line = MarkdownRenderer.sourceLine(at: r.location, in: storage) else { return Later.report { report(nil) } }
+            let selection = Selection(quote: (tv.string as NSString).substring(with: r), target: line, place: "Line \(line)")
+            Later.report { report(selection) }
+        }
     }
 }
