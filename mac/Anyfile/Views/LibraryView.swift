@@ -40,7 +40,8 @@ struct LibraryView: View {
                         Hero(entry: current, face: faces[current.path]) { open(current) }
                     }
                     if section == .marks {
-                        MarksList(marks: markStore.all, open: open(_:), remove: { markStore.remove($0) })
+                        MarksList(marks: markStore.all, open: open(_:), remove: { markStore.remove($0) },
+                                  setNote: { markStore.setNote($1, for: $0) })
                     } else if shown.isEmpty {
                         EmptyShelf(section: section ?? .library, open: openPanel)
                     } else {
@@ -283,6 +284,7 @@ private struct MarksList: View {
     let marks: [Mark]
     let open: (Mark) -> Void
     let remove: (Mark) -> Void
+    let setNote: (Mark, String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -292,9 +294,8 @@ private struct MarksList: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(marks) { mark in
-                MarkRow(mark: Mark(id: mark.id, path: mark.path, kind: mark.kind, quote: mark.quote, target: mark.target,
-                                   place: "\(mark.name)  ·  \(mark.place)", created: mark.created),
-                        choose: { open(mark) }, remove: { remove(mark) })
+                MarkRow(mark: mark, caption: "\(mark.name)  ·  \(mark.place)", choose: { open(mark) }, remove: { remove(mark) },
+                        setNote: { setNote(mark, $0) })
                 Divider()
             }
         }

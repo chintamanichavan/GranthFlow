@@ -12,8 +12,34 @@ struct Mark: Codable, Equatable, Identifiable {
     var target: Int
     var place: String
     var created = Date()
+    /// The reader's own words about the passage.
+    var note = ""
 
     var name: String { (path as NSString).lastPathComponent }
+
+    init(id: UUID = UUID(), path: String, kind: String, quote: String, target: Int, place: String, created: Date = Date(), note: String = "") {
+        self.id = id
+        self.path = path
+        self.kind = kind
+        self.quote = quote
+        self.target = target
+        self.place = place
+        self.created = created
+        self.note = note
+    }
+
+    // Written by hand so marks saved before a field existed still load, with that field's default.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        path = try c.decode(String.self, forKey: .path)
+        kind = try c.decode(String.self, forKey: .kind)
+        quote = try c.decode(String.self, forKey: .quote)
+        target = try c.decode(Int.self, forKey: .target)
+        place = try c.decode(String.self, forKey: .place)
+        created = try c.decode(Date.self, forKey: .created)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+    }
 }
 
 /// What is selected in a pane right now, ready to become a mark.
@@ -64,6 +90,15 @@ final class MarkStore {
         marks.append(mark)
         save()
         return mark
+    }
+
+    /// Sets a mark's note, trimmed; an empty note removes it.
+    func setNote(_ note: String, for mark: Mark) {
+        guard let i = marks.firstIndex(where: { $0.id == mark.id }) else { return }
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard marks[i].note != trimmed else { return }
+        marks[i].note = trimmed
+        save()
     }
 
     func remove(_ mark: Mark) {

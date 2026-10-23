@@ -197,6 +197,23 @@ final class AnyfileUITests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+    func testANoteCanBeWrittenOnAMark() {
+        let app = launch(Data("Call me Ishmael.\nSome years ago.\n".utf8), as: "noted.txt")
+        let editor = element(app, "textEditor")
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        editor.click()
+        editor.typeKey(.upArrow, modifierFlags: .command)
+        editor.typeKey(.rightArrow, modifierFlags: [.command, .shift])                      // select the first line
+        element(app, "action.mark").click()
+        let add = element(app, "addNote")
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.click()
+        let field = element(app, "noteField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("The narrator names himself.\r")
+        XCTAssertTrue(element(app, "note.Call me Ishmael.").waitForExistence(timeout: 5))
+    }
+
     func testContentsDisabledForPlainText() {
         let app = launch(Data("alpha\n".utf8), as: "notes.txt")
         XCTAssertTrue(element(app, "actionBar").waitForExistence(timeout: 10))

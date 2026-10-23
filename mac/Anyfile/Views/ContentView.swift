@@ -137,7 +137,7 @@ struct ContentView: View {
                                  document: $document, runsImmediately: false, onApply: apply).id("edit-\(document.kind)"))
         case .mark:
             AnyView(MarkPanel(marks: marks, status: markStatus, choose: { go(to: $0.target, query: $0.quote) },
-                              remove: { markStore.remove($0) }))
+                              remove: { markStore.remove($0) }, setNote: { markStore.setNote($1, for: $0) }))
         case .find:
             AnyView(FindPanel(document: document) { hit, query in go(to: hit.target, query: query) }.id("find-\(document.kind)"))
         default:
