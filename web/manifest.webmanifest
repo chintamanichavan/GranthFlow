@@ -1,0 +1,30 @@
+{
+  "name": "GranthFlow",
+  "short_name": "GranthFlow",
+  "description": "A reader for books, papers and notes. PDF, EPUB, Markdown and text, read on your own device.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F5F4F0",
+  "theme_color": "#F5F4F0",
+  "categories": ["books", "education", "productivity"],
+  "icons": [
+    { "src": "./icons/icon_128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "./icons/icon_256.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "./icons/icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon_1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/epub+zip": [".epub"],
+        "application/pdf": [".pdf"],
+        "text/markdown": [".md", ".markdown"],
+        "text/plain": [".txt"]
+      }
+    }
+  ],
+  "launch_handler": { "client_mode": "focus-existing" }
+}

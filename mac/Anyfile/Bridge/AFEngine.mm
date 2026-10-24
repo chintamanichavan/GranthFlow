@@ -1,11 +1,9 @@
 #import "AFEngine.h"
 
-#include <sstream>
 #include <string>
 #include <vector>
 
-#include "core/handler.hpp"
-#include "core/util.hpp"
+#include "core/engine.hpp"
 
 @implementation AFCommand {
     NSString *_name, *_usage, *_help;
@@ -39,61 +37,36 @@ static NSString *str(const std::string &s) {
     return u ?: [[NSString alloc] initWithBytes:s.data() length:s.size() encoding:NSISOLatin1StringEncoding] ?: @"";
 }
 
-// A temp file that keeps the original extension (detection looks at it) and is removed on scope exit.
-struct TempCopy {
-    std::string path;
-    TempCopy(NSData *data, NSString *name) {
-        NSString *ext = name.pathExtension;
-        NSString *dir = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"anyfile-%@", NSUUID.UUID.UUIDString]];
-        [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
-        NSString *file = [dir stringByAppendingPathComponent:ext.length ? [@"file" stringByAppendingPathExtension:ext] : @"file"];
-        [data writeToFile:file atomically:NO];
-        path = file.UTF8String;
-    }
-    ~TempCopy() { [NSFileManager.defaultManager removeItemAtPath:[@(path.c_str()) stringByDeletingLastPathComponent] error:nil]; }
-};
+static std::string bytes(NSData *data) {
+    return std::string(static_cast<const char *>(data.bytes), data.length);
+}
 
+// Everything below is translation between Objective-C and C++ types. The work itself lives in
+// anyfile::detectKind / commandsForKind / runOnBytes, which the WebAssembly build also calls.
 @implementation AFEngine
 
 + (NSString *)detectKind:(NSData *)data name:(NSString *)name {
-    TempCopy tmp(data, name);
-    std::string kind;
-    anyfile::makeHandler(tmp.path, "", kind);
-    return str(kind);
+    return str(anyfile::detectKind(bytes(data), name.UTF8String));
 }
 
 + (NSArray<AFCommand *> *)commandsForKind:(NSString *)kind {
-    std::string detected;
-    auto h = anyfile::makeHandler("/nonexistent", kind.UTF8String, detected);   // a forced kind never touches the path
     NSMutableArray<AFCommand *> *out = [NSMutableArray array];
-    auto add = [&](const std::vector<anyfile::Command> &cs) {
-        for (const auto &c : cs) [out addObject:[[AFCommand alloc] initWithName:str(c.name) usage:str(c.usage) help:str(c.help)]];
-    };
-    if (h) add(h->commands());
-    add(anyfile::commonCommands());
+    for (const auto &c : anyfile::commandsForKind(kind.UTF8String)) {
+        [out addObject:[[AFCommand alloc] initWithName:str(c.name) usage:str(c.usage) help:str(c.help)]];
+    }
     return out;
 }
 
 + (AFResult *)run:(NSString *)command args:(NSArray<NSString *> *)args data:(NSData *)data name:(NSString *)name kind:(NSString *)kind {
-    TempCopy tmp(data, name);
     std::vector<std::string> argv;
-    for (NSUInteger i = 0; i < args.count; ++i) {
-        // --out would write outside the document; the GUI always edits in place.
-        if ([args[i] isEqualToString:@"--out"] || [args[i] isEqualToString:@"-o"]) { ++i; continue; }
-        argv.push_back(args[i].UTF8String);
-    }
-    std::string detected;
-    auto h = anyfile::makeHandler(tmp.path, kind.length ? kind.UTF8String : "", detected);
-    if (!h) return [[AFResult alloc] initWithStatus:2 output:@"" error:@"unknown file kind" data:nil outputData:[NSData data]];
-    std::ostringstream out, err;
-    anyfile::Status st = h->run(command.UTF8String, argv, out, err);
-    if (st == anyfile::Status::Unknown) err << "\"" << command.UTF8String << "\" is not a command for " << detected << " files";
+    argv.reserve(args.count);
+    for (NSString *arg in args) argv.push_back(arg.UTF8String);
 
-    NSData *after = [NSData dataWithContentsOfFile:@(tmp.path.c_str())];
-    NSData *changed = (after && ![after isEqualToData:data]) ? after : nil;
-    std::string printed = out.str();
-    return [[AFResult alloc] initWithStatus:static_cast<int>(st) output:str(printed) error:str(err.str()) data:changed
-                                 outputData:[NSData dataWithBytes:printed.data() length:printed.size()]];
+    const anyfile::RunResult r = anyfile::runOnBytes(command.UTF8String, argv, bytes(data), name.UTF8String,
+                                                     kind.length ? kind.UTF8String : "");
+    NSData *changed = r.didChange ? [NSData dataWithBytes:r.changed.data() length:r.changed.size()] : nil;
+    return [[AFResult alloc] initWithStatus:static_cast<int>(r.status) output:str(r.output) error:str(r.error) data:changed
+                                 outputData:[NSData dataWithBytes:r.output.data() length:r.output.size()]];
 }
 
 @end

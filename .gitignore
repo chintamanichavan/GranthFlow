@@ -6,6 +6,11 @@ mac/build/
 xcuserdata/
 *.xcuserstate
 
+# granthflow PWA: the WebAssembly build tree. web/vendor/anyfile.{mjs,wasm} are committed on
+# purpose, so the app can be served from any static host without the Emscripten SDK installed.
+build-wasm/
+build-wasm-debug/
+
 # granthflow: Python web reader
 __pycache__/
 *.pyc

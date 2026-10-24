@@ -4,8 +4,9 @@ This repository holds two readers, each with its own README below:
 
 - **Anyfile**: a C++20 engine that reads and modifies PDF, EPUB, Markdown, text and binary files,
   with a SwiftUI Mac app on top, named **GranthFlow** (ग्रंथ, Marathi for book) in the Dock and
-  menus. Its code and folders keep the name Anyfile (`src/` except `src/granthflow`, `tests/`,
-  `mac/`, `design/`).
+  menus, and an installable web app (PWA) over the same engine compiled to WebAssembly. Its code
+  and folders keep the name Anyfile (`src/` except `src/granthflow`, `tests/`, `mac/`, `design/`,
+  `web/`).
 - **granthflow**: a personal EPUB reader for the web, FastAPI + SQLite + epub.js
   (`src/granthflow/`, `pyproject.toml`, `data/`).
 
@@ -121,12 +122,86 @@ Tests: `mac/AnyfileTests` (engine bridge and document, 19 cases) and `mac/Anyfil
 (opens real files and drives the window, 7 cases). Run them with Cmd-U in Xcode; UI tests need
 Accessibility permission for the test runner the first time.
 
+## One engine, many platforms
+
+`src/core/engine.hpp` is the engine as a platform sees it: bytes in, bytes out, no file paths and
+no platform types. Three calls — `detectKind`, `commandsForKind`, `runOnBytes` — and the staging
+of bytes into a file the handlers can open, the argument filtering and the result shaping all
+happen there, once, rather than once per platform.
+
+Every binding is translation only:
+
+| platform | binding | what it translates to |
+|---|---|---|
+| CLI | `src/main.cpp` | argv and stdout |
+| Mac | `mac/Anyfile/Bridge/AFEngine.mm` | `NSData`, `NSString`, `NSArray` |
+| Web | `src/wasm/engine_wasm.cpp` | `Uint8Array`, JS strings and objects |
+
+Each is under a hundred lines. A new platform — Android over JNI, Windows, iOS — writes one more
+of these and gets every format and command the CLI has, with no parsing logic of its own.
+
+## Web app (PWA)
+
+`web/` is an installable, offline-first reader over the same engine compiled to WebAssembly.
+There is no server and no backend: the engine runs in the browser, and the library lives in
+IndexedDB.
+
+```sh
+web/build.sh                  # C++ -> WebAssembly, into web/vendor/ (needs the Emscripten SDK)
+python3 web/serve.py          # -> http://127.0.0.1:8080
+```
+
+`web/vendor/anyfile.{mjs,wasm}` are committed, so serving `web/` from any static host (GitHub
+Pages, S3, a Tailscale box) needs no toolchain. Install it from the browser's address bar;
+Chrome, Edge and Android install it as an app, and iOS Safari adds it via Share → Add to Home
+Screen. Installing needs https or localhost — reading does not.
+
+- The library is a shelf of covers made from each file's own contents, as on the Mac: a book's
+  own cover picture or its title on cloth, a note's first lines, a program's bytes as a map.
+- EPUB chapters and PDF pages turn one at a time, Markdown and text are one column with an
+  outline, anything else gets a hex view. Marks are painted over the text, with notes, four
+  colours and Markdown export. Text size, spacing, column width and look are per book.
+- Read aloud uses the browser's own voice. Files can be dropped onto the window, and the app
+  registers as a handler for `.epub`, `.pdf`, `.md` and `.txt` where the browser allows it.
+
+What the Mac app has and this does not: PDF pages are shown as the engine's extracted text
+rather than rendered, since the engine reads text and not images (PDFKit does the rendering on
+the Mac). The Metal page-turn animation, Spotlight, Shortcuts and watched folders are all
+platform features with no web equivalent.
+
+### A library shared with the Mac app
+
+Both keep the same two files. The Mac app writes `library.json` and `marks.json` to
+`~/Library/Application Support/Anyfile/`; the PWA holds the same records in IndexedDB and reads
+and writes those exact files under **Library** in the top bar. So a library moves either way —
+by hand, or through anything that syncs files (iCloud Drive, Syncthing, a Tailscale box).
+
+Two differences the browser forces, both additive, so Swift's decoder ignores them:
+
+| field | on the Mac | in the browser |
+|---|---|---|
+| `path` | the absolute filesystem path | the file's name; a Mac path is filed under its last component on import |
+| `hash` | not present | SHA-256 of the contents, since a name alone cannot tell two books apart |
+
+Importing never loses anything: for an entry already present the later reading place wins, and a
+mark is added only if its id is new. Dates are written as ISO8601 **without** fractional
+seconds, because Swift's `.iso8601` strategy rejects `.000Z`.
+
+It is a shared *format*, not a sync service — nothing talks to anything over a network.
+
 ## Tests and measurements
 
 ```sh
-cmake --build build && (cd build && ctest)   # 124 unit cases across 10 modules + 49 end-to-end
+cmake --build build && (cd build && ctest)   # 143 unit cases across 11 modules + 49 end-to-end
 python3 tests/bench.py build/anyfile          # timings on generated 400-page PDF, 200-chapter EPUB, 50 MiB text, 50 MiB binary
+
+node tests/wasm/engine_smoke.mjs              # the WebAssembly binding, 26 checks
+.venv/bin/python -m pytest tests/test_pwa_browser.py   # the PWA in headless Chromium, 14 cases
 ```
+
+The browser tests drive the real app: the engine loading as WebAssembly, covers made from file
+contents, turning pages, a mark surviving a reload, the library exporting in the shape the Mac
+app reads back, and the page still reading with the network cut.
 
 ## System design
 
@@ -152,11 +227,20 @@ The scripts are data-driven: edit the lists at the top (`LAYERS`/`COMPONENTS`/`E
 ```
 src/main.cpp          CLI
 src/core/             FileHandler interface, ByteHandler base, registry, util
+src/core/engine.*     the bytes-in/bytes-out facade every platform binding sits on
 src/handlers/         text, markdown, pdf, epub handlers
 src/pdf/              lexer, parser, object model, filters, document (xref + save), text extraction
 src/epub/             zip archive, XML tokenizer, book (package, spine, chapter text, edits)
+src/wasm/             the WebAssembly binding (embind)
 mac/                  SwiftUI app, Objective-C++ bridge, XCTest and XCUITest targets
+web/                  the PWA: shell, service worker, manifest, and the built engine in vendor/
+web/app/engine.js     JavaScript's view of the engine, the counterpart of Engine.swift
+web/app/store.js      IndexedDB, in the Mac app's library.json / marks.json shape
+web/build.sh          C++ -> WebAssembly
+web/serve.py          a static server with the right types for .mjs and .wasm
 tests/unit/           unit tests, one executable per module
+tests/wasm/           the WebAssembly binding, in node
+tests/test_pwa_browser.py  the PWA in headless Chromium
 tests/run_tests.sh    end-to-end smoke tests
 tests/bench.py        timings on large generated files
 design/               system design doc + Blender script

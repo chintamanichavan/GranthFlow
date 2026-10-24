@@ -49,6 +49,7 @@
 				granthflow/templates/library.html,
 				granthflow/templates/reader.html,
 				main.cpp,
+				wasm/engine_wasm.cpp,
 			);
 			target = DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */;
 		};

@@ -1,0 +1,377 @@
+/* Colours and type from the design, the same values as mac/Anyfile/Theme.swift, so a book that
+   is deep blue on the Mac is deep blue here. Reading is set in a serif, the app in the system
+   sans, bytes and source in a monospace. */
+
+:root {
+  --library-window: #F5F4F0;
+  --library-label: #1C1C1E;
+  --library-secondary: #6B6B70;
+  --library-tertiary: #A5A5AA;
+  --accent: #3B49DF;
+  --hairline: #E2E0DA;
+  --paper-window: #F7F0E1;
+  --paper-label: #32291C;
+  --paper-secondary: #7B6D58;
+  --paper-hairline: #E6DCC8;
+  --mark: #FFDD6B;
+  --mark-pink: #FF9EC4;
+  --mark-green: #A6E3A1;
+  --mark-blue: #9CC8FF;
+  --ink: #F1E4C6;
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --serif: "New York", "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --library-window: #1C1C1E;
+    --library-label: #F2F2F4;
+    --library-secondary: #A0A0A6;
+    --library-tertiary: #68686E;
+    --accent: #8FA0FF;
+    --hairline: #333336;
+    --paper-window: #1F1B15;
+    --paper-label: #E9E0CD;
+    --paper-secondary: #A89A82;
+    --paper-hairline: #3A3328;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 14px/1.45 var(--sans);
+  background: var(--library-window);
+  color: var(--library-label);
+  -webkit-text-size-adjust: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--hairline);
+  border-radius: 7px;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--library-tertiary); }
+button.plain { border-color: transparent; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button[aria-pressed="true"] { background: var(--hairline); }
+button:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------------------------------------------------------------- the bar */
+
+header.bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 18px;
+  background: color-mix(in srgb, var(--library-window) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+header.bar h1 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 8px 0 0;
+  letter-spacing: 0.01em;
+}
+header.bar .spacer { flex: 1; }
+header.bar .count { color: var(--library-secondary); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- the shelf */
+
+main { padding: 18px; }
+
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 22px 18px;
+}
+
+.book { display: flex; flex-direction: column; gap: 7px; cursor: pointer; }
+.book:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+
+.cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 8px 18px rgba(0, 0, 0, 0.14);
+  background: var(--library-tertiary);
+}
+.book:hover .cover { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 14px 26px rgba(0, 0, 0, 0.18); }
+.art { position: absolute; inset: 0; }
+.art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.art canvas { width: 100%; height: 100%; display: block; }
+
+/* A title on cloth, for a book with no cover of its own. */
+.art.cloth {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14% 11%;
+  color: var(--ink);
+}
+.art.cloth .title { font: 600 clamp(13px, 1.5vw, 17px)/1.25 var(--serif); }
+.art.cloth .author { font: 400 11px/1.3 var(--serif); opacity: 0.74; }
+/* The spine's edge, as on a bound book. */
+.art.cloth::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5%;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* A note, a page or a text file: its own first lines. */
+.art.leaf {
+  background: #FCFBF7;
+  color: #2A2A2E;
+  padding: 11%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: hidden;
+}
+.art.leaf .heading { font: 600 13px/1.25 var(--serif); margin-bottom: 4px; }
+.art.leaf .row { font: 8.5px/1.5 var(--serif); color: #55555C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.art.leaf.plain .row { font-family: var(--mono); font-size: 7.5px; }
+
+.badge {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  font: 600 9px/1 var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #fff;
+}
+.badge.finished { background: #1F4A3A; }
+
+.progress {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.progress span { display: block; height: 100%; background: var(--mark); }
+
+.book .name { font-weight: 500; font-size: 12.5px; line-height: 1.3; }
+.book .note { font-size: 11px; color: var(--library-secondary); }
+
+.empty {
+  padding: 70px 20px;
+  text-align: center;
+  color: var(--library-secondary);
+}
+.empty h2 { font: 500 16px var(--sans); color: var(--library-label); margin: 0 0 6px; }
+.empty p { margin: 0 0 16px; }
+
+/* The whole window is a drop target, as the Mac app's library is. */
+body.dropping::after {
+  content: "Drop to add to the library";
+  position: fixed;
+  inset: 10px;
+  z-index: 50;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  display: grid;
+  place-content: center;
+  font-weight: 600;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- reading */
+
+body.reading { background: var(--paper-window); color: var(--paper-label); }
+body.reading header.bar { background: color-mix(in srgb, var(--paper-window) 88%, transparent); border-color: var(--paper-hairline); }
+
+/* The reader's own look, when it is not following the system. */
+body.look-paper { --paper-window: #F7F0E1; --paper-label: #32291C; --paper-secondary: #7B6D58; --paper-hairline: #E6DCC8; }
+body.look-sepia { --paper-window: #F4ECD8; --paper-label: #43351F; --paper-secondary: #7E6A4A; --paper-hairline: #E3D5B6; }
+body.look-night { --paper-window: #0E1330; --paper-label: #E9EBFA; --paper-secondary: #8D94C4; --paper-hairline: #252C5E; }
+
+.reader { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: calc(100vh - 53px); }
+.reader.alone { grid-template-columns: minmax(0, 1fr); }
+
+.contents {
+  border-right: 1px solid var(--paper-hairline);
+  padding: 14px 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 53px);
+  position: sticky;
+  top: 53px;
+}
+.contents h2 {
+  font: 600 10px/1 var(--sans);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--paper-secondary);
+  margin: 0 18px 9px;
+}
+.contents a {
+  display: block;
+  padding: 5px 18px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 12.5px;
+  border-left: 2px solid transparent;
+}
+.contents a:hover { background: color-mix(in srgb, var(--paper-label) 6%, transparent); }
+.contents a[aria-current="true"] { border-left-color: var(--accent); color: var(--accent); font-weight: 500; }
+.contents a .where { color: var(--paper-secondary); font-variant-numeric: tabular-nums; margin-right: 7px; }
+
+.page { padding: 26px 24px 120px; }
+
+/* The column the text is set in: its measure and leading come from the reading settings, as
+   ReadingSettings.measure and lineHeight do on the Mac. */
+.column {
+  margin: 0 auto;
+  max-width: var(--measure, 560px);
+  font: var(--size, 17px) / var(--leading, 1.45) var(--serif);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+.column.mono { font-family: var(--mono); font-size: calc(var(--size, 17px) * 0.78); white-space: pre; overflow-x: auto; }
+
+.column mark {
+  background: var(--mark);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.column mark.pink { background: var(--mark-pink); }
+.column mark.green { background: var(--mark-green); }
+.column mark.blue { background: var(--mark-blue); }
+
+.turn {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: var(--measure, 560px);
+  margin: 34px auto 0;
+}
+.left { color: var(--paper-secondary); font-size: 12px; text-align: center; margin-top: 22px; }
+
+/* The bar of actions over the page, as the Mac app's ActionBar is. */
+.actions {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
+  background: color-mix(in srgb, var(--paper-window) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--paper-hairline);
+  flex-wrap: wrap;
+}
+
+/* What appears when a passage is selected. */
+.marker {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  gap: 5px;
+  padding: 6px;
+  border-radius: 9px;
+  background: var(--paper-window);
+  border: 1px solid var(--paper-hairline);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+.marker button { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.18); }
+.marker .yellow { background: var(--mark); }
+.marker .pink { background: var(--mark-pink); }
+.marker .green { background: var(--mark-green); }
+.marker .blue { background: var(--mark-blue); }
+
+/* ---------------------------------------------------------------- panels */
+
+dialog {
+  border: none;
+  border-radius: 13px;
+  padding: 0;
+  max-width: min(560px, 92vw);
+  width: 100%;
+  background: var(--library-window);
+  color: var(--library-label);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+dialog .head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--hairline); }
+dialog .head h2 { margin: 0; font-size: 14px; font-weight: 600; flex: 1; }
+dialog .body { padding: 14px 16px; max-height: 60vh; overflow-y: auto; }
+dialog .foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--hairline); }
+
+.field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 13px; }
+.field label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--library-secondary); }
+.field input, .field textarea, .field select {
+  font: inherit;
+  color: inherit;
+  background: color-mix(in srgb, var(--library-label) 5%, transparent);
+  border: 1px solid var(--hairline);
+  border-radius: 7px;
+  padding: 7px 9px;
+}
+.field textarea { min-height: 72px; resize: vertical; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* A mark in the list. */
+.mark-row { padding: 11px 0; border-bottom: 1px solid var(--hairline); }
+.mark-row:last-child { border-bottom: none; }
+.mark-row blockquote {
+  margin: 0 0 6px;
+  padding-left: 10px;
+  border-left: 3px solid var(--mark);
+  font: 14px/1.45 var(--serif);
+}
+.mark-row.pink blockquote { border-left-color: var(--mark-pink); }
+.mark-row.green blockquote { border-left-color: var(--mark-green); }
+.mark-row.blue blockquote { border-left-color: var(--mark-blue); }
+.mark-row .note { font-size: 12.5px; color: var(--library-secondary); margin: 0 0 6px; }
+.mark-row .where { font-size: 11px; color: var(--library-tertiary); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 9px 15px;
+  border-radius: 9px;
+  background: var(--library-label);
+  color: var(--library-window);
+  font-size: 12.5px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.25);
+}
+
+.hint { font-size: 11.5px; color: var(--library-secondary); }
+
+@media (max-width: 720px) {
+  .reader { grid-template-columns: minmax(0, 1fr); }
+  .contents { position: static; max-height: 230px; border-right: none; border-bottom: 1px solid var(--paper-hairline); }
+  .shelf { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 16px 12px; }
+  header.bar { padding: 9px 12px; }
+  header.bar h1 { margin-right: 2px; }
+  main { padding: 12px; }
+}
