@@ -16,17 +16,18 @@ import socket
 import threading
 import zipfile
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
 playwright = pytest.importorskip("playwright.sync_api")
-from playwright.sync_api import Page, sync_playwright  # noqa: E402
+from playwright.sync_api import Page, sync_playwright
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    extensions_map = {
+    extensions_map: ClassVar[dict[str, str]] = {
         **http.server.SimpleHTTPRequestHandler.extensions_map,
         ".mjs": "text/javascript",
         ".js": "text/javascript",
@@ -362,7 +363,7 @@ def test_the_service_worker_caches_the_shell_and_the_engine(page: Page):
     }""")
     assert any(path.endswith("/vendor/anyfile.wasm") for path in cached), "the engine is cached for offline use"
     assert any(path.endswith("/app/main.js") for path in cached)
-    assert any(path.endswith("/index.html") or path.endswith("/") for path in cached)
+    assert any(path.endswith(("/index.html", "/")) for path in cached)
 
 
 def test_the_page_works_with_the_network_cut(page: Page, site: str):

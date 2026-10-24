@@ -13,10 +13,11 @@ import functools
 import http.server
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    extensions_map = {
+    extensions_map: ClassVar[dict[str, str]] = {
         **http.server.SimpleHTTPRequestHandler.extensions_map,
         ".mjs": "text/javascript",
         ".js": "text/javascript",

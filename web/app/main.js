@@ -87,7 +87,7 @@ function drawBook(entry) {
   // the card is on screen rather than for the whole library at once.
   watchOnce(face, async () => {
     const bytes = await store.fileBytes(entry.path);
-    if (!bytes) { art.classList.add("leaf", "plain"); art.append(el("div", { class: "row" }, "file missing")); return; }
+    if (!bytes) { art.classList.add("leaf", "plain"); art.append(el("div", { class: "line" }, "file missing")); return; }
     drawCover(art, cover.art(bytes, entry.path, entry.kind));
     const named = cover.caption(bytes, entry.path, entry.kind);
     if (named.title) name.textContent = named.title;
@@ -126,15 +126,15 @@ function drawCover(face, art) {
     case "note":
       face.classList.add("leaf");
       face.append(el("div", { class: "heading" }, art.heading));
-      for (const row of art.rows) face.append(el("div", { class: "row" }, row));
+      for (const row of art.rows) face.append(el("div", { class: "line" }, row));
       break;
     case "page":
       face.classList.add("leaf");
-      for (const row of art.rows) face.append(el("div", { class: "row" }, row));
+      for (const row of art.rows) face.append(el("div", { class: "line" }, row));
       break;
     case "text":
       face.classList.add("leaf", "plain");
-      for (const row of art.rows) face.append(el("div", { class: "row" }, row));
+      for (const row of art.rows) face.append(el("div", { class: "line" }, row));
       break;
     default:
       face.append(byteMap(art));
@@ -282,7 +282,8 @@ async function openBook(entry) {
   await store.noteReadingPlace(entry.path, {});
   main.innerHTML = "";
   bar.innerHTML = "";
-  bar.append(el("h1", {}, entry.path));
+  // What the book calls itself, as the shelf shows it, rather than the file name.
+  bar.append(el("h1", {}, cover.caption(bytes, entry.path, entry.kind).title || entry.path));
   reader = new Reader({
     root: main,
     entry: await store.entry(entry.path),

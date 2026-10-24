@@ -73,6 +73,7 @@ header.bar {
   top: 0;
   z-index: 5;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   padding: 10px 18px;
@@ -88,7 +89,8 @@ header.bar h1 {
   letter-spacing: 0.01em;
 }
 header.bar .spacer { flex: 1; }
-header.bar .count { color: var(--library-secondary); font-variant-numeric: tabular-nums; }
+header.bar .count { color: var(--library-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+header.bar select { max-width: 42vw; }
 
 /* ---------------------------------------------------------------- the shelf */
 
@@ -146,8 +148,8 @@ main { padding: 18px; }
   overflow: hidden;
 }
 .art.leaf .heading { font: 600 13px/1.25 var(--serif); margin-bottom: 4px; }
-.art.leaf .row { font: 8.5px/1.5 var(--serif); color: #55555C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.art.leaf.plain .row { font-family: var(--mono); font-size: 7.5px; }
+.art.leaf .line { min-width: 0; font: 8.5px/1.5 var(--serif); color: #55555C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.art.leaf.plain .line { font-family: var(--mono); font-size: 7.5px; }
 
 .badge {
   position: absolute;
@@ -264,12 +266,15 @@ body.look-night { --paper-window: #0E1330; --paper-label: #E9EBFA; --paper-secon
 
 .turn {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   max-width: var(--measure, 560px);
   margin: 34px auto 0;
 }
-.left { color: var(--paper-secondary); font-size: 12px; text-align: center; margin-top: 22px; }
+.left { color: var(--paper-secondary); font-size: 12px; text-align: center; }
+/* On its own, below a column with nothing to turn, it needs the space the buttons would give. */
+.page > .left { margin-top: 22px; }
 
 /* The bar of actions over the page, as the Mac app's ActionBar is. */
 .actions {
@@ -371,7 +376,11 @@ dialog .foot { display: flex; gap: 8px; justify-content: flex-end; padding: 12px
   .reader { grid-template-columns: minmax(0, 1fr); }
   .contents { position: static; max-height: 230px; border-right: none; border-bottom: 1px solid var(--paper-hairline); }
   .shelf { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 16px 12px; }
-  header.bar { padding: 9px 12px; }
+  header.bar { padding: 9px 12px; gap: 7px; }
   header.bar h1 { margin-right: 2px; }
+  /* There is no room for everything: the count goes, and the pickers wrap onto their own row. */
+  header.bar .count { display: none; }
+  header.bar .spacer { flex-basis: 100%; height: 0; }
+  header.bar select { flex: 1; min-width: 0; max-width: none; }
   main { padding: 12px; }
 }
