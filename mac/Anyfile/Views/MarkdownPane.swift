@@ -59,7 +59,7 @@ enum MarkdownRenderer {
             } else if inFence {
                 piece = NSMutableAttributedString(string: line, attributes: [
                     .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular), .foregroundColor: Theme.paper.secondary])
-            } else if let level = headingLevel(trimmed) {
+            } else if let level = MarkdownSyntax.headingLevel(trimmed) {
                 let text = trimmed.drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces)
                 let size: CGFloat = [30, 23, 19, 17, 15, 14][level - 1]
                 piece = NSMutableAttributedString(string: text, attributes: [
@@ -99,13 +99,6 @@ enum MarkdownRenderer {
             out.append(NSAttributedString(string: text, attributes: attributes))
         }
         return out
-    }
-
-    static func headingLevel(_ line: String) -> Int? {
-        let hashes = line.prefix(while: { $0 == "#" }).count
-        guard hashes >= 1, hashes <= 6 else { return nil }
-        let rest = line.dropFirst(hashes)
-        return rest.isEmpty || rest.first == " " ? hashes : nil
     }
 
     /// The source line a character of the preview came from.

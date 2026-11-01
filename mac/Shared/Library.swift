@@ -86,8 +86,22 @@ final class Library {
         self.limit = limit
         let data = try? Data(contentsOf: file)
         entries = data.flatMap { try? Self.decoder.decode([LibraryEntry].self, from: $0) } ?? []
+        #if os(iOS)
+        entries = entries.map(Self.rebased)
+        #endif
         checkFiles()
     }
+
+    #if os(iOS)
+    /// iOS can move the app's container on reinstall or update; a file kept in Documents is found
+    /// again under the current one.
+    private static func rebased(_ entry: LibraryEntry) -> LibraryEntry {
+        guard let r = entry.path.range(of: "/Documents/") else { return entry }
+        var e = entry
+        e.path = URL.documentsDirectory.appendingPathComponent(String(entry.path[r.upperBound...])).path
+        return e
+    }
+    #endif
 
     /// Notes which files have been moved or deleted. Run at launch and when the library comes
     /// forward, not on every redraw: with 5000 files that was 50 000 disk checks a redraw.

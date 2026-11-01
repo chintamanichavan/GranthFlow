@@ -1,6 +1,6 @@
 // How a book is set for reading: text size, line spacing, column width and theme. Kept per book
 // in the library; a book opened for the first time starts with the reader's latest choice.
-import AppKit
+import SwiftUI
 
 struct ReadingSettings: Codable, Equatable {
     enum Spacing: String, Codable, CaseIterable { case tight, normal, loose }
@@ -54,13 +54,13 @@ struct ReadingSettings: Codable, Equatable {
 
 extension Theme {
     /// Paper that stays light in dark mode, for readers who want it.
-    static let fixedPaper = Palette(window: NSColor(hex: "#F7F0E1")!, label: NSColor(hex: "#32291C")!, secondary: NSColor(hex: "#7B6D58")!,
-                                    tertiary: NSColor(hex: "#AA9C86")!, accent: NSColor(hex: "#3B49DF")!, hairline: NSColor(hex: "#E6DCC8")!)
-    static let sepia = Palette(window: NSColor(hex: "#EBD9B4")!, label: NSColor(hex: "#3E2C17")!, secondary: NSColor(hex: "#7A5F3C")!,
-                               tertiary: NSColor(hex: "#A88B62")!, accent: NSColor(hex: "#8A4B14")!, hairline: NSColor(hex: "#D9C399")!)
+    static let fixedPaper = Palette(window: PlatformColor(hex: "#F7F0E1")!, label: PlatformColor(hex: "#32291C")!, secondary: PlatformColor(hex: "#7B6D58")!,
+                                    tertiary: PlatformColor(hex: "#AA9C86")!, accent: PlatformColor(hex: "#3B49DF")!, hairline: PlatformColor(hex: "#E6DCC8")!)
+    static let sepia = Palette(window: PlatformColor(hex: "#EBD9B4")!, label: PlatformColor(hex: "#3E2C17")!, secondary: PlatformColor(hex: "#7A5F3C")!,
+                               tertiary: PlatformColor(hex: "#A88B62")!, accent: PlatformColor(hex: "#8A4B14")!, hairline: PlatformColor(hex: "#D9C399")!)
     /// Warm dark paper with light ink, for reading at night.
-    static let readingNight = Palette(window: NSColor(hex: "#1F1B15")!, label: NSColor(hex: "#E2D8C4")!, secondary: NSColor(hex: "#A89A82")!,
-                                      tertiary: NSColor(hex: "#6E6352")!, accent: NSColor(hex: "#8FA0FF")!, hairline: NSColor(hex: "#3A3328")!)
+    static let readingNight = Palette(window: PlatformColor(hex: "#1F1B15")!, label: PlatformColor(hex: "#E2D8C4")!, secondary: PlatformColor(hex: "#A89A82")!,
+                                      tertiary: PlatformColor(hex: "#6E6352")!, accent: PlatformColor(hex: "#8FA0FF")!, hairline: PlatformColor(hex: "#3A3328")!)
 }
 
 /// The choice a new book starts with: the last one made, kept in UserDefaults.

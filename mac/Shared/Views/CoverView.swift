@@ -21,8 +21,8 @@ struct CoverView: View {
     @ViewBuilder private var card: some View {
         switch art {
         case let .book(title, author, cloth):
-            BookCover(title: title, author: author, cloth: Color(nsColor: NSColor(hex: Cover.cloths[cloth])!),
-                      ink: Color(nsColor: NSColor(hex: Cover.ink)!))
+            BookCover(title: title, author: author, cloth: Color(platform: PlatformColor(hex: Cover.cloths[cloth])!),
+                      ink: Color(platform: PlatformColor(hex: Cover.ink)!))
         case let .picture(image, _, _):
             PictureCover(image: image)
         case let .page(thumbnail):
@@ -92,11 +92,11 @@ private struct Diamond: Shape {
 
 /// A book's own cover picture, filling the card, with the spine's shade down the left edge.
 private struct PictureCover: View {
-    let image: NSImage
+    let image: PlatformImage
 
     var body: some View {
         ZStack(alignment: .leading) {
-            Image(nsImage: image).resizable().interpolation(.high).scaledToFill()
+            Image(platformImage: image).resizable().interpolation(.high).scaledToFill()
                 .frame(width: CoverView.base.width, height: CoverView.base.height)
             LinearGradient(colors: [.black.opacity(0.22), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 7)
         }
@@ -105,13 +105,13 @@ private struct PictureCover: View {
 }
 
 private struct PageCover: View {
-    let thumbnail: NSImage?
+    let thumbnail: PlatformImage?
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 2).fill(.white)
             if let thumbnail {
-                Image(nsImage: thumbnail).resizable().scaledToFill()
+                Image(platformImage: thumbnail).resizable().scaledToFill()
             } else {
                 VStack(alignment: .leading, spacing: 5) {                // an unreadable PDF still looks like a page
                     ForEach(0..<9, id: \.self) { k in
@@ -130,7 +130,7 @@ private struct NoteCover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(heading).font(.system(size: 11, weight: .semibold)).lineLimit(2)
-                .foregroundStyle(Color(nsColor: NSColor(hex: "#32291C")!))
+                .foregroundStyle(Color(platform: PlatformColor(hex: "#32291C")!))
                 .padding(.bottom, 4)
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 if row.hasPrefix("#") {
@@ -142,16 +142,16 @@ private struct NoteCover: View {
                         Text(row.dropFirst(2)).font(.system(size: 6.5))
                     }
                 } else {
-                    Text(row).font(.system(size: 6.5)).foregroundStyle(Color(nsColor: NSColor(hex: "#5E513E")!))
+                    Text(row).font(.system(size: 6.5)).foregroundStyle(Color(platform: PlatformColor(hex: "#5E513E")!))
                 }
             }
             Spacer(minLength: 0)
         }
         .lineLimit(1)
-        .foregroundStyle(Color(nsColor: NSColor(hex: "#32291C")!))
+        .foregroundStyle(Color(platform: PlatformColor(hex: "#32291C")!))
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: NSColor(hex: "#FFFBEF")!)))
+        .background(RoundedRectangle(cornerRadius: 7).fill(Color(platform: PlatformColor(hex: "#FFFBEF")!)))
     }
 }
 
@@ -171,11 +171,11 @@ private struct TextCover: View {
             .frame(width: 18)
             .padding(.top, 10)
             .frame(maxHeight: .infinity)
-            .background(Color(nsColor: NSColor(hex: "#F3F3F6")!))
+            .background(Color(platform: PlatformColor(hex: "#F3F3F6")!))
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     Text(row.isEmpty ? " " : row).frame(height: 14)
-                        .foregroundStyle(row.hasPrefix("#") ? Color(nsColor: Theme.library.accent) : Color(white: 0.11))
+                        .foregroundStyle(row.hasPrefix("#") ? Color(platform: Theme.library.accent) : Color(white: 0.11))
                 }
                 Spacer(minLength: 0)
             }
@@ -195,10 +195,10 @@ private struct ByteCover: View {
 
     var body: some View {
         Canvas { context, size in
-            context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4), with: .color(Color(nsColor: Theme.bytes[0])))
+            context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4), with: .color(Color(platform: Theme.bytes[0])))
             let inner = CGRect(origin: .zero, size: size).insetBy(dx: 6, dy: 6)
             let w = inner.width / CGFloat(cols), h = inner.height / CGFloat(rows)
-            let colours = Theme.bytes.map { Color(nsColor: $0) }
+            let colours = Theme.bytes.map { Color(platform: $0) }
             for (i, v) in cells.enumerated() where v != 0 {
                 let rect = CGRect(x: inner.minX + CGFloat(i % cols) * w, y: inner.minY + CGFloat(i / cols) * h, width: w, height: h)
                 context.fill(Path(rect.insetBy(dx: 0.15, dy: 0.15)), with: .color(colours[Int(v)]))

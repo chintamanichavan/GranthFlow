@@ -1,15 +1,15 @@
 // Every file has a face. A cover is made from the file's own contents: a book's own cover
 // picture (or its title and author on cloth when it has none), a PDF's first page, a note's
 // first lines, or, for a program, a map of its bytes.
-import Foundation
 import ImageIO
 import PDFKit
+import SwiftUI
 
 enum CoverArt {
     case book(title: [String], author: String, cloth: Int)     // cloth: index into Cover.cloths
     /// A book that comes with its own cover. The title and author are kept for the caption.
-    case picture(NSImage, title: String, author: String)
-    case page(thumbnail: NSImage?)
+    case picture(PlatformImage, title: String, author: String)
+    case page(thumbnail: PlatformImage?)
     case note(heading: String, rows: [String])
     case text(rows: [String])
     case bytes(cells: [UInt8], cols: Int, rows: Int)          // cells: indexes into Theme.bytes
@@ -33,7 +33,7 @@ enum Cover {
             return .page(thumbnail: PDFDocument(data: data)?.page(at: 0).map(pageImage))
         case "markdown":
             let lines = String(decoding: data.prefix(16_384), as: UTF8.self).split(separator: "\n").map(String.init)
-            let headingIndex = lines.firstIndex { MarkdownRenderer.headingLevel($0.trimmingCharacters(in: .whitespaces)) == 1 }
+            let headingIndex = lines.firstIndex { MarkdownSyntax.headingLevel($0.trimmingCharacters(in: .whitespaces)) == 1 }
             let heading = headingIndex.map { lines[$0].drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces) } ?? stem(name)
             let rest = lines.enumerated().filter { $0.offset != headingIndex }.map(\.element)
             return .note(heading: heading, rows: Array(rest.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.prefix(8)))
@@ -50,7 +50,7 @@ enum Cover {
 
     /// The book's own cover image, read at shelf size. A 2.4 MB JPEG is decoded straight to a
     /// 600-pixel image instead of being held at full size for every book on the shelf.
-    static func bookCover(_ data: Data, name: String) -> NSImage? {
+    static func bookCover(_ data: Data, name: String) -> PlatformImage? {
         let path = Engine.run("cover", args: [], on: data, name: name, kind: "epub")
         guard path.succeeded, !path.output.isEmpty else { return nil }
         let bytes = Engine.run("cat", args: [path.output.trimmingCharacters(in: .newlines)], on: data, name: name, kind: "epub")
@@ -58,25 +58,33 @@ enum Cover {
         let options = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
                        kCGImageSourceThumbnailMaxPixelSize: pictureHeight] as CFDictionary
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { return nil }
+        #if os(macOS)
         return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+        #else
+        return UIImage(cgImage: image)
+        #endif
     }
 
     /// The picture's average colour as "#RRGGBB", so the hero behind a cover can take its colour.
-    static func averageHex(_ image: NSImage) -> String? {
-        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8, samplesPerPixel: 4,
-                                         hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
-        NSGraphicsContext.saveGraphicsState()
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
-        NSGraphicsContext.current?.imageInterpolation = .high
-        image.draw(in: NSRect(x: 0, y: 0, width: 1, height: 1))       // the scaler averages every pixel into one
-        NSGraphicsContext.restoreGraphicsState()
-        guard let c = rep.colorAt(x: 0, y: 0)?.usingColorSpace(.sRGB) else { return nil }
-        return String(format: "#%02X%02X%02X", Int(c.redComponent * 255), Int(c.greenComponent * 255), Int(c.blueComponent * 255))
+    static func averageHex(_ image: PlatformImage) -> String? {
+        #if os(macOS)
+        guard let picture = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        #else
+        guard let picture = image.cgImage else { return nil }
+        #endif
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: space,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .high
+        ctx.draw(picture, in: CGRect(x: 0, y: 0, width: 1, height: 1))     // the scaler averages every pixel into one
+        return String(format: "#%02X%02X%02X", pixel[0], pixel[1], pixel[2])
     }
 
     /// The page at the cover's width, from the top, on white: a landscape page shows its upper part
     /// as a page would, instead of floating small in the middle of the cover.
-    static func pageImage(_ page: PDFPage) -> NSImage {
+    static func pageImage(_ page: PDFPage) -> PlatformImage {
+        #if os(macOS)
         let size = NSSize(width: 240, height: 336)
         return NSImage(size: size, flipped: false) { rect in
             NSColor.white.setFill()
@@ -89,6 +97,19 @@ enum Cover {
             page.draw(with: .cropBox, to: ctx)
             return true
         }
+        #else
+        let size = CGSize(width: 240, height: 336)
+        return UIGraphicsImageRenderer(size: size).image { r in
+            UIColor.white.setFill()
+            r.fill(CGRect(origin: .zero, size: size))
+            let box = page.bounds(for: .cropBox)
+            guard box.width > 0 else { return }
+            let ctx = r.cgContext, scale = size.width / box.width
+            ctx.translateBy(x: 0, y: box.height * scale)         // PDF space rises upward; UIKit's falls
+            ctx.scaleBy(x: scale, y: -scale)
+            page.draw(with: .cropBox, to: ctx)
+        }
+        #endif
     }
 
     /// One cell per block of the file, row by row. Files smaller than the grid fill only the top cells.
