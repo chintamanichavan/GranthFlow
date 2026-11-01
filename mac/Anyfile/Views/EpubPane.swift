@@ -2,22 +2,6 @@
 import SwiftUI
 import AppKit
 
-struct EpubChapter: Identifiable, Hashable {
-    let number: Int      // 1-based, as the engine's commands expect
-    let title: String
-    let path: String
-    var id: Int { number }
-
-    /// Parses the engine's `chapters` output: one "number<TAB>title<TAB>path" line per chapter.
-    static func parse(_ output: String) -> [EpubChapter] {
-        output.split(separator: "\n").compactMap { line in
-            let fields = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false)
-            guard fields.count == 3, let number = Int(fields[0]) else { return nil }
-            return EpubChapter(number: number, title: String(fields[1]), path: String(fields[2]))
-        }
-    }
-}
-
 struct EpubPane: View {
     let document: AnyfileDocument
     /// The chapter number on show. Contents sets it; the pane picks the first chapter when it is nil or gone.

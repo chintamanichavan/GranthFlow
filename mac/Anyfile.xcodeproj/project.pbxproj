@@ -27,6 +27,7 @@
 		FFFFFFFFFFFFFFFFFFFFFF01 /* GranthFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GranthFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFFFFFFFFFFFFFFFFFFFFF04 /* GranthFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GranthFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -53,6 +54,29 @@
 			);
 			target = DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */;
 		};
+		CCCCCCCCCCCCCCCCCCCCCC0A /* Exceptions for "core" folder in "GranthFlowiOS" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				granthflow/__init__.py,
+				granthflow/app.py,
+				granthflow/db.py,
+				granthflow/epub_meta.py,
+				granthflow/models.py,
+				granthflow/static/reader.css,
+				granthflow/static/reader.js,
+				granthflow/static/style.css,
+				granthflow/static/vendor/epub.min.js,
+				granthflow/static/vendor/html2canvas.min.js,
+				granthflow/static/vendor/jszip.min.js,
+				granthflow/templates/base.html,
+				granthflow/templates/book.html,
+				granthflow/templates/library.html,
+				granthflow/templates/reader.html,
+				main.cpp,
+				wasm/engine_wasm.cpp,
+			);
+			target = DDDDDDDDDDDDDDDDDDDDDD04 /* GranthFlowiOS */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +99,20 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				CCCCCCCCCCCCCCCCCCCCCC09 /* Exceptions for "core" folder in "Anyfile" target */,
+				CCCCCCCCCCCCCCCCCCCCCC0A /* Exceptions for "core" folder in "GranthFlowiOS" target */,
 			);
 			name = core;
 			path = ../src;
+			sourceTree = "<group>";
+		};
+		CCCCCCCCCCCCCCCCCCCCCC05 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		CCCCCCCCCCCCCCCCCCCCCC06 /* iOS */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = iOS;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -104,6 +139,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EEEEEEEEEEEEEEEEEEEEEE32 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -111,6 +153,8 @@
 			isa = PBXGroup;
 			children = (
 				CCCCCCCCCCCCCCCCCCCCCC01 /* Anyfile */,
+				CCCCCCCCCCCCCCCCCCCCCC06 /* iOS */,
+				CCCCCCCCCCCCCCCCCCCCCC05 /* Shared */,
 				CCCCCCCCCCCCCCCCCCCCCC04 /* core */,
 				CCCCCCCCCCCCCCCCCCCCCC02 /* AnyfileTests */,
 				CCCCCCCCCCCCCCCCCCCCCC03 /* AnyfileUITests */,
@@ -124,6 +168,7 @@
 				FFFFFFFFFFFFFFFFFFFFFF01 /* GranthFlow.app */,
 				FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */,
 				FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */,
+				FFFFFFFFFFFFFFFFFFFFFF04 /* GranthFlow.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -145,6 +190,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				CCCCCCCCCCCCCCCCCCCCCC01 /* Anyfile */,
+				CCCCCCCCCCCCCCCCCCCCCC05 /* Shared */,
 				CCCCCCCCCCCCCCCCCCCCCC04 /* core */,
 			);
 			name = Anyfile;
@@ -200,6 +246,30 @@
 			productReference = FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		DDDDDDDDDDDDDDDDDDDDDD04 /* GranthFlowiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAA15 /* Build configuration list for PBXNativeTarget "GranthFlowiOS" */;
+			buildPhases = (
+				EEEEEEEEEEEEEEEEEEEEEE31 /* Sources */,
+				EEEEEEEEEEEEEEEEEEEEEE32 /* Frameworks */,
+				EEEEEEEEEEEEEEEEEEEEEE33 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CCCCCCCCCCCCCCCCCCCCCC06 /* iOS */,
+				CCCCCCCCCCCCCCCCCCCCCC05 /* Shared */,
+				CCCCCCCCCCCCCCCCCCCCCC04 /* core */,
+			);
+			name = GranthFlowiOS;
+			packageProductDependencies = (
+			);
+			productName = GranthFlowiOS;
+			productReference = FFFFFFFFFFFFFFFFFFFFFF04 /* GranthFlow.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -235,6 +305,7 @@
 				DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */,
 				DDDDDDDDDDDDDDDDDDDDDD02 /* AnyfileTests */,
 				DDDDDDDDDDDDDDDDDDDDDD03 /* AnyfileUITests */,
+				DDDDDDDDDDDDDDDDDDDDDD04 /* GranthFlowiOS */,
 			);
 		};
 /* End PBXProject section */
@@ -261,6 +332,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EEEEEEEEEEEEEEEEEEEEEE33 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -279,6 +357,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		EEEEEEEEEEEEEEEEEEEEEE21 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE31 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -439,7 +524,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.app;
 				PRODUCT_MODULE_NAME = Anyfile;
 				PRODUCT_NAME = GranthFlow;
-				SWIFT_OBJC_BRIDGING_HEADER = Anyfile/Bridge/AFEngine.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/Bridge/AFEngine.h;
 			};
 			name = Debug;
 		};
@@ -460,7 +545,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.app;
 				PRODUCT_MODULE_NAME = Anyfile;
 				PRODUCT_NAME = GranthFlow;
-				SWIFT_OBJC_BRIDGING_HEADER = Anyfile/Bridge/AFEngine.h;
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/Bridge/AFEngine.h;
 			};
 			name = Release;
 		};
@@ -530,6 +615,66 @@
 			};
 			name = Release;
 		};
+		BBBBBBBBBBBBBBBBBBBBBB19 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iOS-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = GranthFlow;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = "-lz";
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.ios;
+				PRODUCT_MODULE_NAME = GranthFlow;
+				PRODUCT_NAME = GranthFlow;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/Bridge/AFEngine.h;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB1A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iOS-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = GranthFlow;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportsDocumentBrowser = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = "-lz";
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.ios;
+				PRODUCT_MODULE_NAME = GranthFlow;
+				PRODUCT_NAME = GranthFlow;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_OBJC_BRIDGING_HEADER = Shared/Bridge/AFEngine.h;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -565,6 +710,15 @@
 			buildConfigurations = (
 				BBBBBBBBBBBBBBBBBBBBBB17 /* Debug */,
 				BBBBBBBBBBBBBBBBBBBBBB18 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AAAAAAAAAAAAAAAAAAAAAA15 /* Build configuration list for PBXNativeTarget "GranthFlowiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBBBBBBBBBBBBBBBBBBBB19 /* Debug */,
+				BBBBBBBBBBBBBBBBBBBBBB1A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
