@@ -1,5 +1,6 @@
 // A file opened from the shelf: one pane per kind, as ContentView chooses on the Mac. The library
-// keeps where reading stopped, and edits to text are written back when the file is left.
+// keeps where reading stopped and how each book is set, and edits to text are written back when
+// the file is left.
 import PDFKit
 import SwiftUI
 
@@ -7,13 +8,20 @@ struct ReaderScreen: View {
     let url: URL
     @State private var document: AnyfileDocument?
     @State private var edited = false
+    @State private var settings: ReadingSettings
     @Environment(\.scenePhase) private var phase
+
+    init(url: URL) {
+        self.url = url
+        // This book's own settings, else the latest choice made for any book.
+        _settings = State(initialValue: Library.shared.entry(for: url)?.settings ?? ReadingDefaults.load())
+    }
 
     var body: some View {
         Group {
             if let document {
                 ReaderView(document: Binding(get: { document }, set: { self.document = $0; edited = true }),
-                           start: Library.shared.entry(for: url)?.position) { position, total in
+                           settings: $settings, start: Library.shared.entry(for: url)?.position) { position, total in
                     Library.shared.recordPosition(url, position: position, total: total)
                 }
             } else {
@@ -27,6 +35,10 @@ struct ReaderScreen: View {
             let opened = AnyfileDocument(data: data, name: url.lastPathComponent)
             document = opened
             Library.shared.recordOpened(url, kind: opened.kind)
+        }
+        .onChange(of: settings) { _, new in
+            ReadingDefaults.save(new)
+            Library.shared.recordSettings(url, new)
         }
         .onDisappear(perform: save)
         .onChange(of: phase) {
@@ -47,6 +59,7 @@ struct ReaderScreen: View {
 
 struct ReaderView: View {
     @Binding var document: AnyfileDocument
+    @Binding var settings: ReadingSettings
     /// Where reading stopped: a chapter number for EPUB, a page index for PDF.
     var start: Int?
     var onPlace: (_ position: Int, _ total: Int) -> Void = { _, _ in }
@@ -54,64 +67,78 @@ struct ReaderView: View {
     var body: some View {
         switch document.kind {
         case "epub":
-            EpubReader(document: document, start: start, onPlace: onPlace)
+            EpubReader(document: document, settings: $settings, start: start, onPlace: onPlace)
         case "pdf":
             PDFReader(data: document.data, start: start, onPlace: onPlace)
-        case "text", "markdown":
-            TextEditor(text: $document.text)
-                .font(.body.monospaced())
-                .padding(.horizontal)
+        case "markdown":
+            MarkdownReader(document: $document)
+        case "text":
+            SourceEditor(text: $document.text)
         default:
             HexReader(document: document)
         }
     }
 }
 
-/// One chapter at a time; the bottom bar turns chapters and lists them all.
+/// One chapter at a time, set as on the Mac. The bottom bar turns chapters and lists them all;
+/// Aa sets the type, column and paper for this book.
 struct EpubReader: View {
     let document: AnyfileDocument
+    @Binding var settings: ReadingSettings
     var start: Int?
     var onPlace: (Int, Int) -> Void
     @State private var chapters: [EpubChapter] = []
     @State private var index = 0
-    @State private var text = ""
+    @State private var language: String?
+    @State private var page = NSAttributedString()
+    @State private var showSettings = false
+
+    /// What the page is set from; a change to any of it sets the page again.
+    private struct Setting: Equatable {
+        let chapter: Int
+        let settings: ReadingSettings
+    }
 
     var body: some View {
-        ScrollView {
-            Text(text)
-                .font(.system(.body, design: .serif))
-                .lineSpacing(6)
-                .textSelection(.enabled)
-                .frame(maxWidth: 680, alignment: .leading)
-                .padding()
-                .frame(maxWidth: .infinity)
-        }
-        .id(index)      // a new chapter starts at its top
-        .toolbar {
-            ToolbarItemGroup(placement: .bottomBar) {
-                Button { index -= 1 } label: { Image(systemName: "chevron.left") }
-                    .disabled(index == 0)
-                Spacer()
-                Menu(title(at: index)) {
-                    ForEach(chapters.indices, id: \.self) { i in
-                        Button(title(at: i)) { index = i }
-                    }
+        PaperText(text: page, paper: settings.palette.window, measure: settings.measure, page: index)
+            .background(Color(platform: settings.palette.window))
+            .toolbarBackground(Color(platform: settings.palette.window), for: .bottomBar)
+            .toolbarBackground(.visible, for: .bottomBar)
+            .preferredColorScheme(settings.isDark.map { $0 ? .dark : .light })
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showSettings.toggle() } label: { Text("Aa").font(.system(size: 17, design: .serif)) }
+                        .accessibilityLabel("Text size, spacing, column and theme")
+                        .popover(isPresented: $showSettings) {
+                            TypeSettingsPanel(settings: $settings).presentationCompactAdaptation(.popover)
+                        }
                 }
-                Spacer()
-                Button { index += 1 } label: { Image(systemName: "chevron.right") }
-                    .disabled(index + 1 >= chapters.count)
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button { index -= 1 } label: { Image(systemName: "chevron.left") }
+                        .disabled(index == 0)
+                    Spacer()
+                    Menu(title(at: index)) {
+                        ForEach(chapters.indices, id: \.self) { i in
+                            Button(title(at: i)) { index = i }
+                        }
+                    }
+                    Spacer()
+                    Button { index += 1 } label: { Image(systemName: "chevron.right") }
+                        .disabled(index + 1 >= chapters.count)
+                }
             }
-        }
-        .task {
-            chapters = EpubChapter.parse(run("chapters").output)
-            index = chapters.firstIndex { $0.number == start } ?? 0
-        }
-        .task(id: chapters.isEmpty ? nil : chapters[index].number) {
-            guard !chapters.isEmpty else { return }
-            let number = chapters[index].number
-            text = run("text", String(number)).output
-            onPlace(number, chapters.count)
-        }
+            .task {
+                chapters = EpubChapter.parse(run("chapters").output)
+                language = Cover.field("language", in: run("meta").output)
+                index = chapters.firstIndex { $0.number == start } ?? 0
+            }
+            .task(id: chapters.isEmpty ? nil : Setting(chapter: chapters[index].number, settings: settings)) {
+                guard !chapters.isEmpty else { return }
+                let chapter = chapters[index]
+                page = ReadingStyle.chapter(run("text", String(chapter.number)).output, number: chapter.number,
+                                            title: chapter.title, language: language, settings: settings)
+                onPlace(chapter.number, chapters.count)
+            }
     }
 
     private func title(at i: Int) -> String {
@@ -122,6 +149,46 @@ struct EpubReader: View {
 
     private func run(_ command: String, _ args: String...) -> RunResult {
         Engine.run(command, args: args, on: document.data, name: document.name, kind: document.kind)
+    }
+}
+
+/// Markdown: edit the source, or read it set as a page, as on the Mac.
+struct MarkdownReader: View {
+    @Binding var document: AnyfileDocument
+    @State private var showPreview = false
+    @State private var preview = NSAttributedString()
+
+    var body: some View {
+        Group {
+            if showPreview {
+                PaperText(text: preview, paper: Theme.paper.window)
+            } else {
+                SourceEditor(text: $document.text)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("Mode", selection: $showPreview) {
+                    Text("Edit").tag(false)
+                    Text("Preview").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 180)
+            }
+        }
+        .onChange(of: showPreview, initial: true) {
+            if showPreview { preview = MarkdownRenderer.render(document.text) }
+        }
+    }
+}
+
+struct SourceEditor: View {
+    @Binding var text: String
+
+    var body: some View {
+        TextEditor(text: $text)
+            .font(.body.monospaced())
+            .padding(.horizontal)
     }
 }
 

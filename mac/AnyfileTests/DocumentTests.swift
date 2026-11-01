@@ -43,10 +43,10 @@ final class DocumentTests: XCTestCase {
     }
 
     func testMarkdownRendererHeadingsAndFences() {
-        XCTAssertEqual(MarkdownSyntax.headingLevel("## Two"), 2)
-        XCTAssertEqual(MarkdownSyntax.headingLevel("#"), 1)
-        XCTAssertNil(MarkdownSyntax.headingLevel("#notaheading"))
-        XCTAssertNil(MarkdownSyntax.headingLevel("####### seven"))
+        XCTAssertEqual(MarkdownRenderer.headingLevel("## Two"), 2)
+        XCTAssertEqual(MarkdownRenderer.headingLevel("#"), 1)
+        XCTAssertNil(MarkdownRenderer.headingLevel("#notaheading"))
+        XCTAssertNil(MarkdownRenderer.headingLevel("####### seven"))
         let rendered = MarkdownRenderer.render("# T\n\n```\n# code\n```\n- item\n")
         let plain = rendered.string
         XCTAssertTrue(plain.hasPrefix("T\n"))

@@ -33,7 +33,7 @@ enum Cover {
             return .page(thumbnail: PDFDocument(data: data)?.page(at: 0).map(pageImage))
         case "markdown":
             let lines = String(decoding: data.prefix(16_384), as: UTF8.self).split(separator: "\n").map(String.init)
-            let headingIndex = lines.firstIndex { MarkdownSyntax.headingLevel($0.trimmingCharacters(in: .whitespaces)) == 1 }
+            let headingIndex = lines.firstIndex { MarkdownRenderer.headingLevel($0.trimmingCharacters(in: .whitespaces)) == 1 }
             let heading = headingIndex.map { lines[$0].drop(while: { $0 == "#" }).trimmingCharacters(in: .whitespaces) } ?? stem(name)
             let rest = lines.enumerated().filter { $0.offset != headingIndex }.map(\.element)
             return .note(heading: heading, rows: Array(rest.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.prefix(8)))

@@ -57,14 +57,14 @@ private struct LookSwatch: View {
             VStack(spacing: 5) {
                 ZStack {
                     if look == .auto {
-                        // Half light paper, half dark: it follows the Mac's appearance.
-                        Circle().fill(Color(nsColor: Theme.fixedPaper.window))
-                        Circle().trim(from: 0.25, to: 0.75).fill(Color(nsColor: Theme.readingNight.window)).rotationEffect(.degrees(180))
+                        // Half light paper, half dark: it follows the system appearance.
+                        Circle().fill(Color(platform: Theme.fixedPaper.window))
+                        Circle().trim(from: 0.25, to: 0.75).fill(Color(platform: Theme.readingNight.window)).rotationEffect(.degrees(180))
                     } else {
-                        Circle().fill(Color(nsColor: ReadingSettings(look: look).palette.window))
+                        Circle().fill(Color(platform: ReadingSettings(look: look).palette.window))
                     }
                     Text("Aa").font(.system(size: 12, design: .serif))
-                        .foregroundStyle(Color(nsColor: look == .night ? Theme.readingNight.label : Theme.fixedPaper.label))
+                        .foregroundStyle(Color(platform: look == .night ? Theme.readingNight.label : Theme.fixedPaper.label))
                 }
                 .frame(width: 40, height: 40)
                 .overlay(Circle().strokeBorder(chosen ? Color.accentColor : Color.primary.opacity(0.15), lineWidth: chosen ? 2.5 : 1))
