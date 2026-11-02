@@ -1,6 +1,7 @@
 // The shelf: every file in GranthFlow's folder, most recent first, each as a cover with its title
 // and how far reading has got. + brings files in; a long press removes one. Marks lists every
-// passage marked, in any file; choosing one opens its file there.
+// passage marked, in any file; choosing one opens its file there. The magnifying glass searches
+// every file on the shelf.
 package local.granthflow
 
 import android.net.Uri
@@ -8,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,12 +24,16 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,12 +53,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,13 +70,35 @@ fun LibraryScreen(library: Library, store: MarkStore, onOpen: (Opening) -> Unit,
     val palette = Theme.library()
     val entries = library.recent
     var showMarks by rememberSaveable { mutableStateOf(false) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val corpus = remember { Corpus() }
+    val results by produceState(emptyList<Pair<LibraryEntry, List<FindHit>>>(), query) {
+        if (query.isEmpty()) return@produceState run { value = emptyList() }
+        delay(250)                                               // a word typed, not each letter
+        value = withContext(Dispatchers.IO) { synchronized(corpus) { corpus.search(query, entries) } }
+    }
     Scaffold(
         containerColor = palette.window,
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Library") },
+                    title = {
+                        if (searching) {
+                            TextField(
+                                value = query, onValueChange = { query = it }, singleLine = true, placeholder = { Text("Search every file") },
+                                colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent),
+                                modifier = Modifier.fillMaxWidth().testTag("searchField"),
+                            )
+                        } else {
+                            Text("Library")
+                        }
+                    },
                     actions = {
+                        IconButton(onClick = { searching = !searching; query = "" }, modifier = Modifier.testTag("search")) {
+                            Icon(if (searching) Icons.Filled.Close else Icons.Filled.Search,
+                                 contentDescription = if (searching) "Stop searching" else "Search every file")
+                        }
                         IconButton(onClick = { pick.launch(arrayOf("*/*")) }, modifier = Modifier.testTag("add")) {
                             Icon(Icons.Filled.Add, contentDescription = "Add books and documents")
                         }
@@ -82,7 +112,26 @@ fun LibraryScreen(library: Library, store: MarkStore, onOpen: (Opening) -> Unit,
             }
         },
     ) { padding ->
-        if (showMarks) {
+        if (query.isNotEmpty()) {
+            if (results.isEmpty()) {
+                Box(Modifier.padding(padding).fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Text("No matches for “$query”.", color = palette.secondary)
+                }
+            } else {
+                LazyColumn(Modifier.padding(padding).fillMaxSize()) {
+                    results.forEach { (entry, hits) ->
+                        item(key = entry.path) {
+                            Text(entry.name, style = MaterialTheme.typography.titleSmall, color = palette.secondary,
+                                 modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 4.dp))
+                        }
+                        items(hits, key = { entry.path + "#" + it.id }) { hit ->
+                            HitRow(hit, Modifier.clickable { onOpen(Opening(entry.path, GoTo(hit.target, query))) }
+                                .testTag("searchHit.${entry.name}.${hit.id}"))
+                        }
+                    }
+                }
+            }
+        } else if (showMarks) {
             val marks = store.all
             if (marks.isEmpty()) {
                 Box(Modifier.padding(padding).fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {

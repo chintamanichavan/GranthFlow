@@ -1,7 +1,8 @@
 // A file opened from the shelf: one reader per kind, as on the Mac and iPhone. The library keeps
 // where reading stopped and how each book is set; edits to a note or a text file are written back
 // when it is left. A passage in a book or a note's preview is marked from the menu over it; the
-// pencil lists this file's marks and notes.
+// pencil lists this file's marks and notes. The magnifying glass finds words in the file, and a book
+// or a note's preview can be read aloud from the top of the screen or the selection.
 package local.granthflow
 
 import android.app.Activity
@@ -11,6 +12,7 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -34,7 +36,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ButtonDefaults
@@ -47,6 +54,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -87,6 +95,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -106,29 +115,70 @@ fun ReaderScreen(path: String, library: Library, store: MarkStore, start: GoTo?,
 
     var goTo by remember { mutableStateOf(start) }
     var showMarks by remember { mutableStateOf(false) }
-    val marks = Marking(store.marks(path), onMark = { store.add(it, path, kind) }, goTo = goTo, list = {
-        IconButton(onClick = { showMarks = true }, modifier = Modifier.testTag("marksButton")) {
-            Icon(Icons.Filled.Edit, contentDescription = "Marks and notes")
+    var showFind by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val speaker = remember { Speaker(context) }
+    DisposableEffect(speaker) { onDispose { speaker.shutdown() } }
+    val handle = remember { TextViewHandle() }
+    val language = remember(path) {
+        if (kind == "epub") EpubChapter.meta("Language", Engine.run("meta", data = data, name = file.name, kind = kind).output) else null
+    }
+    val tools = Tools(store.marks(path), onMark = { store.add(it, path, kind) }, goTo = goTo, handle = handle, stopReading = speaker::stop) {
+        if (kind == "epub" || kind == "markdown") ReadAloud(speaker) { handle.view?.let { speaker.speak(it, handle.topCharacter(), language) } }
+        IconButton(onClick = { showFind = true }, modifier = Modifier.testTag("findButton")) {
+            Icon(Icons.Filled.Search, contentDescription = "Find in this file")
         }
-    })
+        if (kind == "epub" || kind == "markdown") {
+            IconButton(onClick = { showMarks = true }, modifier = Modifier.testTag("marksButton")) {
+                Icon(Icons.Filled.Edit, contentDescription = "Marks and notes")
+            }
+        }
+    }
     if (showMarks) {
         MarksSheet(store, path, data, kind, onDismiss = { showMarks = false }) { mark ->
             showMarks = false
             goTo = GoTo(mark.target, mark.quote, (goTo?.serial ?: 0) + 1)
         }
     }
+    if (showFind) {
+        FindSheet(data, file.name, kind, onDismiss = { showFind = false }) { hit, query ->
+            showFind = false
+            goTo = GoTo(hit.target, query, (goTo?.serial ?: 0) + 1)
+        }
+    }
     when (kind) {
-        "epub" -> EpubReader(path, data, library, title, marks, onBack)
-        "pdf" -> PdfReader(path, library, title, onBack)
-        "markdown" -> TextReader(file, String(data), markdown = true, title, marks, onBack)
+        "epub" -> EpubReader(path, data, library, title, tools, onBack)
+        "pdf" -> PdfReader(path, library, title, tools, onBack)
+        "markdown" -> TextReader(file, String(data), markdown = true, title, tools, onBack)
         "text" -> TextReader(file, String(data), markdown = false, title, null, onBack)
         else -> HexReader(file.name, data, title, onBack)
     }
 }
 
-/** What a reader needs to mark: this file's marks, where to send a new one, the mark to go to, and
- *  the button that lists them. */
-private class Marking(val marks: List<Mark>, val onMark: (Selection) -> Unit, val goTo: GoTo?, val list: @Composable () -> Unit)
+/** What a reader shares: this file's marks, where to send a new one, the mark or match to go to, where
+ *  its page's text view is kept for reading aloud, and the buttons for its bar. */
+private class Tools(
+    val marks: List<Mark>, val onMark: (Selection) -> Unit, val goTo: GoTo?, val handle: TextViewHandle,
+    val stopReading: () -> Unit, val buttons: @Composable () -> Unit,
+)
+
+/** Read Aloud; while reading, Pause or Resume, and Stop. */
+@Composable
+private fun ReadAloud(speaker: Speaker, start: () -> Unit) {
+    if (speaker.state == Speaker.State.IDLE) {
+        IconButton(onClick = start, modifier = Modifier.testTag("readAloud")) {
+            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Read aloud")
+        }
+    } else {
+        IconButton(onClick = speaker::stop, modifier = Modifier.testTag("stopReading")) {
+            Icon(Icons.Filled.Stop, contentDescription = "Stop reading")
+        }
+        IconButton(onClick = speaker::pauseOrResume, modifier = Modifier.testTag("pauseReading")) {
+            Icon(if (speaker.state == Speaker.State.PAUSED) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                 contentDescription = if (speaker.state == Speaker.State.PAUSED) "Resume reading" else "Pause reading")
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,7 +199,7 @@ private fun ReaderBar(title: String, palette: Palette, onBack: () -> Unit, middl
  *  the type, column and paper for this book. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EpubReader(path: String, data: ByteArray, library: Library, title: String, marking: Marking, onBack: () -> Unit) {
+private fun EpubReader(path: String, data: ByteArray, library: Library, title: String, marking: Tools, onBack: () -> Unit) {
     val name = File(path).name
     val context = LocalContext.current
     // This book's own settings, else the latest choice made for any book.
@@ -175,6 +225,7 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
     // The chapter on show and its text, read by the engine off the main thread.
     var text by remember { mutableStateOf<Pair<EpubChapter, String>?>(null) }
     LaunchedEffect(chapters, index) {
+        marking.stopReading()                                // reading belongs to the page it started on
         val chapter = chapters.getOrNull(index) ?: return@LaunchedEffect
         text = chapter to withContext(Dispatchers.IO) { Engine.run("text", listOf("${chapter.number}"), data, name, "epub").output }
         library.recordPosition(path, chapter.number, chapters.size)
@@ -195,7 +246,7 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
         containerColor = palette.window,
         topBar = {
             ReaderBar(title, palette, onBack) {
-                marking.list()
+                marking.buttons()
                 TextButton(onClick = { showSettings = true }, modifier = Modifier.testTag("typeSettings")) {
                     Text("Aa", fontFamily = FontFamily.Serif, fontSize = 18.sp, color = palette.accent)
                 }
@@ -226,13 +277,14 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
             paints = marking.marks.filter { it.target == chapter.number }.map { it.paint },
             reveal = goTo?.takeIf { it.target == chapter.number },
             onMark = { a, b -> page?.let { marking.onMark(Selection(it.substring(a, b), chapter.number, chapter.name)) } },
+            handle = marking.handle,
         )
     }
 }
 
 /** Every page of a PDF, drawn by Android's own renderer as it scrolls into view. */
 @Composable
-private fun PdfReader(path: String, library: Library, title: String, onBack: () -> Unit) {
+private fun PdfReader(path: String, library: Library, title: String, tools: Tools, onBack: () -> Unit) {
     val renderer = remember(path) {
         runCatching { PdfRenderer(ParcelFileDescriptor.open(File(path), ParcelFileDescriptor.MODE_READ_ONLY)) }.getOrNull()
     } ?: return Unreadable(title, "Android cannot draw this PDF. It may be damaged, or protected with a password.", onBack)
@@ -242,9 +294,10 @@ private fun PdfReader(path: String, library: Library, title: String, onBack: () 
     val count = renderer.pageCount
     val list = rememberLazyListState(initialFirstVisibleItemIndex = (library.entry(path)?.position ?: 0).coerceIn(0, maxOf(0, count - 1)))
     LaunchedEffect(list) { snapshotFlow { list.firstVisibleItemIndex }.collect { library.recordPosition(path, it, count) } }
+    LaunchedEffect(tools.goTo) { tools.goTo?.let { list.scrollToItem(it.target.coerceIn(0, maxOf(0, count - 1))) } }   // a match's page
 
     val palette = Theme.paper()
-    Scaffold(containerColor = Color(0xFF8E8E93), topBar = { ReaderBar(title, palette, onBack) }) { padding ->
+    Scaffold(containerColor = Color(0xFF8E8E93), topBar = { ReaderBar(title, palette, onBack) { tools.buttons() } }) { padding ->
         BoxWithConstraints(Modifier.padding(padding).fillMaxSize()) {
             val width = constraints.maxWidth.coerceAtMost(2400)
             LazyColumn(state = list, modifier = Modifier.fillMaxSize().testTag("pdf")) {
@@ -277,7 +330,7 @@ private fun PdfReader(path: String, library: Library, title: String, onBack: () 
 /** A note or a text file, edited in place. A note can also be read set as a page, and marked there. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TextReader(file: File, initial: String, markdown: Boolean, title: String, marking: Marking?, onBack: () -> Unit) {
+private fun TextReader(file: File, initial: String, markdown: Boolean, title: String, marking: Tools?, onBack: () -> Unit) {
     var text by rememberSaveable(file.path) { mutableStateOf(initial) }
     val goTo = marking?.goTo
     // Marks are made, and shown, in the preview; going to one shows it.
@@ -306,9 +359,10 @@ private fun TextReader(file: File, initial: String, markdown: Boolean, title: St
                         }
                     }
                 }
-            }) { marking?.list?.invoke() }
+            }) { marking?.buttons?.invoke() }
         },
     ) { padding ->
+        LaunchedEffect(showPreview) { if (!showPreview) marking?.stopReading?.invoke() }
         if (showPreview && marking != null) {
             val preview = remember(text, palette) { MarkdownRenderer.render(text, palette) }
             PaperText(
@@ -320,6 +374,7 @@ private fun TextReader(file: File, initial: String, markdown: Boolean, title: St
                     val line = MarkdownRenderer.sourceLine(a, preview) ?: return@PaperText
                     marking.onMark(Selection(preview.substring(a, b), line, "Line $line"))
                 },
+                handle = marking.handle,
                 tag = "preview",
             )
         } else {
@@ -358,6 +413,43 @@ private fun MarksSheet(store: MarkStore, path: String, data: ByteArray, kind: St
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp))
             }
         }
+    }
+}
+
+/** Find in this file: every match, with its place and the line around it. Choosing one goes there. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FindSheet(data: ByteArray, name: String, kind: String, onDismiss: () -> Unit, choose: (FindHit, String) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    val body by produceState<Find.Body?>(null, name) { value = withContext(Dispatchers.Default) { Find.body(data, name, kind) } }
+    val hits by produceState(emptyList<FindHit>(), query, body) {
+        delay(200)                                           // a word typed, not each letter
+        val b = body ?: return@produceState
+        value = withContext(Dispatchers.Default) { Find.hits(query, b) }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        OutlinedTextField(
+            value = query, onValueChange = { query = it }, singleLine = true, placeholder = { Text("Find in this file") },
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).testTag("findField"),
+        )
+        if (query.isNotEmpty() && hits.isEmpty()) {
+            Text("No matches for “$query”.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
+        }
+        LazyColumn(Modifier.padding(top = 8.dp, bottom = 24.dp)) {
+            items(hits, key = { it.id }) { hit ->
+                HitRow(hit, Modifier.clickable { choose(hit, query) }.testTag("hit.${hit.id}"))
+            }
+        }
+    }
+}
+
+/** A match: the line around it, and where it is. */
+@Composable
+fun HitRow(hit: FindHit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 10.dp)) {
+        Text(hit.snippet, fontFamily = FontFamily.Serif, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(hit.place, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

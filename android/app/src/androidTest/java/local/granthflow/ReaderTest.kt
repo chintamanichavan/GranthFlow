@@ -6,6 +6,7 @@ package local.granthflow
 import android.content.Intent
 import android.text.Spanned
 import android.text.style.BackgroundColorSpan
+import android.text.style.UnderlineSpan
 import android.widget.TextView
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -189,6 +190,52 @@ class ReaderTest {
         val kept = app.marks.marks(file.path).single()
         assertEquals("whale", kept.quote)
         assertEquals("Line 3", kept.place)
+    }
+
+    @Test fun findInABookGoesToTheChapter() {
+        open(Fixtures.epub(), "epub")
+        waitFor("page", "Hello book & reader.")
+        compose.onNodeWithTag("findButton").performClick()
+        compose.onNodeWithTag("findField").performTextInput("CLOSING")                  // any case
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("hit.0").assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag("hit.0").assert(hasText("Second Heading", substring = true)).performClick()
+        waitFor("page", "Closing words.")
+        compose.waitUntil(5_000) { page("page") { it.selectionEnd - it.selectionStart } == "closing".length }   // the match is selected
+    }
+
+    @Test fun findInAPdfGoesToThePage() {
+        open(Fixtures.pdf(), "pdf")
+        compose.waitUntil(10_000) { runCatching { compose.onNode(hasContentDescription("Page 1")).assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag("findButton").performClick()
+        compose.onNodeWithTag("findField").performTextInput("page 2")
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("hit.0").assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag("hit.0").assert(hasText("Page 2", substring = true)).performClick()
+        compose.waitUntil(10_000) { runCatching { compose.onNode(hasContentDescription("Page 2")).assertIsDisplayed() }.isSuccess }
+    }
+
+    @Test fun searchEveryFileFindsAndOpens() {
+        val file = open("Ishmael speaks first.\n\nSome years ago, a whale.\n".toByteArray(), "md")
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithText("Preview").assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithContentDescription("Library").performClick()
+        compose.onNodeWithTag("search").performClick()
+        compose.onNodeWithTag("searchField").performTextInput("whale")
+        val hit = "searchHit.${file.name}.0"
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag(hit).assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag(hit).assert(hasText("Line 3", substring = true)).performClick()
+        waitFor("preview", "Some years ago")                                         // the note opens in its preview
+    }
+
+    @Test fun aBookIsReadAloudAndStopped() {
+        open(Fixtures.epub(), "epub")
+        waitFor("page", "Hello book & reader.")
+        compose.onNodeWithTag("readAloud").performClick()
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("stopReading").assertIsDisplayed() }.isSuccess }
+        compose.onNodeWithTag("pauseReading").assertIsDisplayed()
+        compose.waitUntil(10_000) {                                                // the word being spoken is underlined
+            page("page") { (it.text as Spanned).getSpans(0, it.text.length, UnderlineSpan::class.java).isNotEmpty() } == true
+        }
+        compose.onNodeWithTag("stopReading").performClick()
+        compose.waitUntil(5_000) { runCatching { compose.onNodeWithTag("readAloud").assertIsDisplayed() }.isSuccess }
     }
 
     @Test fun anyOtherFileShowsItsBytes() {
