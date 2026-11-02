@@ -1,5 +1,6 @@
 // The shelf: every file in GranthFlow's folder, most recent first, each as a cover with its title
-// and how far reading has got. + brings files in; a long press removes one.
+// and how far reading has got. + brings files in; a long press removes one. Marks lists every
+// passage marked, in any file; choosing one opens its file there.
 package local.granthflow
 
 import android.net.Uri
@@ -21,7 +22,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -50,25 +57,47 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(library: Library, onOpen: (String) -> Unit, onAdd: (List<Uri>) -> Unit) {
+fun LibraryScreen(library: Library, store: MarkStore, onOpen: (Opening) -> Unit, onAdd: (List<Uri>) -> Unit) {
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) onAdd(uris) }
     val palette = Theme.library()
     val entries = library.recent
+    var showMarks by rememberSaveable { mutableStateOf(false) }
     Scaffold(
         containerColor = palette.window,
         topBar = {
-            TopAppBar(
-                title = { Text("Library") },
-                actions = {
-                    IconButton(onClick = { pick.launch(arrayOf("*/*")) }, modifier = Modifier.testTag("add")) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add books and documents")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.window),
-            )
+            Column {
+                TopAppBar(
+                    title = { Text("Library") },
+                    actions = {
+                        IconButton(onClick = { pick.launch(arrayOf("*/*")) }, modifier = Modifier.testTag("add")) {
+                            Icon(Icons.Filled.Add, contentDescription = "Add books and documents")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.window),
+                )
+                PrimaryTabRow(selectedTabIndex = if (showMarks) 1 else 0, containerColor = palette.window) {
+                    Tab(selected = !showMarks, onClick = { showMarks = false }, text = { Text("Books & Files") })
+                    Tab(selected = showMarks, onClick = { showMarks = true }, text = { Text("Marks") }, modifier = Modifier.testTag("marksTab"))
+                }
+            }
         },
     ) { padding ->
-        if (entries.isEmpty()) {
+        if (showMarks) {
+            val marks = store.all
+            if (marks.isEmpty()) {
+                Box(Modifier.padding(padding).fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Text("No marks yet.\nSelect a passage in any book or note and choose Mark. It will be kept here.",
+                         textAlign = TextAlign.Center, color = palette.secondary)
+                }
+            } else {
+                LazyColumn(Modifier.padding(padding).fillMaxSize()) {
+                    items(marks, key = { it.id }) { mark ->
+                        MarkRow(mark, caption = "${mark.name}  ·  ${mark.place}", choose = { onOpen(Opening(mark)) }, store = store)
+                        HorizontalDivider(Modifier.padding(horizontal = 24.dp))
+                    }
+                }
+            }
+        } else if (entries.isEmpty()) {
             Box(Modifier.padding(padding).fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                 Text("Nothing here yet.\nAdd books and documents with +.", textAlign = TextAlign.Center, color = palette.secondary)
             }
@@ -81,7 +110,7 @@ fun LibraryScreen(library: Library, onOpen: (String) -> Unit, onAdd: (List<Uri>)
                 verticalArrangement = Arrangement.spacedBy(28.dp),
             ) {
                 items(entries, key = { it.path }) { entry ->
-                    ShelfItem(entry, palette, onOpen = { onOpen(entry.path) }, onRemove = {
+                    ShelfItem(entry, palette, onOpen = { onOpen(Opening(entry.path)) }, onRemove = {
                         entry.file.delete()
                         library.forget(entry.path)
                     })

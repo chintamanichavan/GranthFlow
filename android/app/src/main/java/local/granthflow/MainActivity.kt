@@ -21,21 +21,21 @@ import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val app get() = application as GranthFlowApp
-    /** The file on show, by path; null shows the library. */
-    private var open by mutableStateOf<String?>(null)
+    /** The file on show, and a mark in it to go to; null shows the library. */
+    private var open by mutableStateOf<Opening?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        if (savedInstanceState == null) follow(intent) else open = savedInstanceState.getString("open")
+        if (savedInstanceState == null) follow(intent) else open = savedInstanceState.getString("open")?.let { Opening(it) }
         setContent {
             GranthFlowTheme {
-                val path = open
-                if (path == null) {
-                    LibraryScreen(app.library, onOpen = { open = it }, onAdd = { uris -> add(uris) {} })
+                val o = open
+                if (o == null) {
+                    LibraryScreen(app.library, app.marks, onOpen = { open = it }, onAdd = { uris -> add(uris) {} })
                 } else {
                     BackHandler { open = null }
-                    key(path) { ReaderScreen(path, app.library, onBack = { open = null }) }      // a new file starts afresh
+                    key(o) { ReaderScreen(o.path, app.library, app.marks, o.goTo, onBack = { open = null }) }      // a new file starts afresh
                 }
             }
         }
@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putString("open", open)
+        outState.putString("open", open?.path)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -52,13 +52,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun follow(intent: Intent) {
-        intent.getStringExtra("open")?.let { open = it; return }
+        intent.getStringExtra("open")?.let { open = Opening(it); return }
         val uri = when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
             else -> null
         } ?: return
-        add(listOf(uri)) { paths -> paths.firstOrNull()?.let { open = it } }
+        add(listOf(uri)) { paths -> paths.firstOrNull()?.let { open = Opening(it) } }
     }
 
     /** Copies files in and shelves them, off the main thread, then hands over their paths. */
@@ -68,4 +68,9 @@ class MainActivity : ComponentActivity() {
             then(paths)
         }
     }
+}
+
+/** A file to open, and the mark in it to go to. */
+data class Opening(val path: String, val goTo: GoTo? = null) {
+    constructor(mark: Mark) : this(mark.path, GoTo(mark.target, mark.quote))
 }

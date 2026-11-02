@@ -1,8 +1,11 @@
 // A file opened from the shelf: one reader per kind, as on the Mac and iPhone. The library keeps
-// where reading stopped; edits to a note or a text file are written back when it is left.
+// where reading stopped and how each book is set; edits to a note or a text file are written back
+// when it is left. A passage in a book or a note's preview is marked from the menu over it; the
+// pencil lists this file's marks and notes.
 package local.granthflow
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
@@ -13,14 +16,15 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
@@ -30,14 +34,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -59,7 +67,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -67,14 +74,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -84,9 +91,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** The file's bytes and kind, read once; then the reader for its kind. */
+/** The file's bytes and kind, read once; then the reader for its kind. [start] is a mark to go to,
+ *  chosen in the library. */
 @Composable
-fun ReaderScreen(path: String, library: Library, onBack: () -> Unit) {
+fun ReaderScreen(path: String, library: Library, store: MarkStore, start: GoTo?, onBack: () -> Unit) {
     val file = File(path)
     val title = file.nameWithoutExtension
     val loaded by produceState<Result<Pair<ByteArray, String>>?>(null, path) {
@@ -95,14 +103,32 @@ fun ReaderScreen(path: String, library: Library, onBack: () -> Unit) {
     val result = loaded ?: return Box(Modifier.fillMaxSize().background(Theme.paper().window), Alignment.Center) { CircularProgressIndicator() }
     val (data, kind) = result.getOrElse { return Unreadable(title, "The file could not be read. It may have been moved or deleted.", onBack) }
     LaunchedEffect(path) { library.recordOpened(path, kind) }
+
+    var goTo by remember { mutableStateOf(start) }
+    var showMarks by remember { mutableStateOf(false) }
+    val marks = Marking(store.marks(path), onMark = { store.add(it, path, kind) }, goTo = goTo, list = {
+        IconButton(onClick = { showMarks = true }, modifier = Modifier.testTag("marksButton")) {
+            Icon(Icons.Filled.Edit, contentDescription = "Marks and notes")
+        }
+    })
+    if (showMarks) {
+        MarksSheet(store, path, data, kind, onDismiss = { showMarks = false }) { mark ->
+            showMarks = false
+            goTo = GoTo(mark.target, mark.quote, (goTo?.serial ?: 0) + 1)
+        }
+    }
     when (kind) {
-        "epub" -> EpubReader(path, data, library, title, onBack)
+        "epub" -> EpubReader(path, data, library, title, marks, onBack)
         "pdf" -> PdfReader(path, library, title, onBack)
-        "markdown" -> TextReader(file, String(data), markdown = true, title, onBack)
-        "text" -> TextReader(file, String(data), markdown = false, title, onBack)
+        "markdown" -> TextReader(file, String(data), markdown = true, title, marks, onBack)
+        "text" -> TextReader(file, String(data), markdown = false, title, null, onBack)
         else -> HexReader(file.name, data, title, onBack)
     }
 }
+
+/** What a reader needs to mark: this file's marks, where to send a new one, the mark to go to, and
+ *  the button that lists them. */
+private class Marking(val marks: List<Mark>, val onMark: (Selection) -> Unit, val goTo: GoTo?, val list: @Composable () -> Unit)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,7 +149,7 @@ private fun ReaderBar(title: String, palette: Palette, onBack: () -> Unit, middl
  *  the type, column and paper for this book. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EpubReader(path: String, data: ByteArray, library: Library, title: String, onBack: () -> Unit) {
+private fun EpubReader(path: String, data: ByteArray, library: Library, title: String, marking: Marking, onBack: () -> Unit) {
     val name = File(path).name
     val context = LocalContext.current
     // This book's own settings, else the latest choice made for any book.
@@ -134,30 +160,26 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
         value = withContext(Dispatchers.IO) { EpubChapter.parse(Engine.run("chapters", data = data, name = name, kind = "epub").output) }
     }
     var index by rememberSaveable { mutableIntStateOf(-1) }
-    var page by remember { mutableStateOf(AnnotatedString("")) }
     var listing by remember { mutableStateOf(false) }
-    val scroll = rememberScrollState()
+    val goTo = marking.goTo
 
     LaunchedEffect(chapters) {
-        if (chapters.isNotEmpty() && index < 0) index = chapters.indexOfFirst { it.number == library.entry(path)?.position }.coerceAtLeast(0)
+        if (chapters.isNotEmpty() && index < 0) {
+            val at = goTo?.target ?: library.entry(path)?.position
+            index = chapters.indexOfFirst { it.number == at }.coerceAtLeast(0)
+        }
     }
-    var text by remember { mutableStateOf<Pair<Int, String>?>(null) }      // the chapter number and its text
+    LaunchedEffect(goTo) {                                   // a mark chosen in the marks sheet
+        chapters.indexOfFirst { it.number == goTo?.target }.takeIf { it >= 0 }?.let { index = it }
+    }
+    // The chapter on show and its text, read by the engine off the main thread.
+    var text by remember { mutableStateOf<Pair<EpubChapter, String>?>(null) }
     LaunchedEffect(chapters, index) {
         val chapter = chapters.getOrNull(index) ?: return@LaunchedEffect
-        text = chapter.number to withContext(Dispatchers.IO) { Engine.run("text", listOf("${chapter.number}"), data, name, "epub").output }
+        text = chapter to withContext(Dispatchers.IO) { Engine.run("text", listOf("${chapter.number}"), data, name, "epub").output }
         library.recordPosition(path, chapter.number, chapters.size)
     }
-    var shown by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(text, settings, palette) {
-        val (number, body) = text ?: return@LaunchedEffect
-        val chapter = chapters.first { it.number == number }
-        // A new chapter starts at its top; new settings keep about the same place in it.
-        val through = if (shown == number && scroll.maxValue > 0) scroll.value.toFloat() / scroll.maxValue else 0f
-        page = ReadingStyle.chapter(body, number, chapter.title, settings, palette)
-        withFrameNanos { }
-        scroll.scrollTo((through * scroll.maxValue).toInt())
-        shown = number
-    }
+    val page = remember(text, palette) { text?.let { (c, body) -> ReadingStyle.chapter(body, c.number, c.title, palette) } }
     if (showSettings) {
         ModalBottomSheet(onDismissRequest = { showSettings = false }) {
             TypeSettingsPanel(settings) {
@@ -173,6 +195,7 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
         containerColor = palette.window,
         topBar = {
             ReaderBar(title, palette, onBack) {
+                marking.list()
                 TextButton(onClick = { showSettings = true }, modifier = Modifier.testTag("typeSettings")) {
                     Text("Aa", fontFamily = FontFamily.Serif, fontSize = 18.sp, color = palette.accent)
                 }
@@ -197,11 +220,13 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
             }
         },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(scroll), horizontalAlignment = Alignment.CenterHorizontally) {
-            SelectionContainer {
-                Text(page, Modifier.widthIn(max = settings.measure + 48.dp).padding(horizontal = 24.dp, vertical = 28.dp).testTag("page"))
-            }
-        }
+        val (chapter, _) = text ?: return@Scaffold
+        PaperText(
+            page ?: "", palette, settings, Modifier.padding(padding).fillMaxSize(), page = chapter.number,
+            paints = marking.marks.filter { it.target == chapter.number }.map { it.paint },
+            reveal = goTo?.takeIf { it.target == chapter.number },
+            onMark = { a, b -> page?.let { marking.onMark(Selection(it.substring(a, b), chapter.number, chapter.name)) } },
+        )
     }
 }
 
@@ -249,12 +274,15 @@ private fun PdfReader(path: String, library: Library, title: String, onBack: () 
     }
 }
 
-/** A note or a text file, edited in place. A note can also be read set as a page. */
+/** A note or a text file, edited in place. A note can also be read set as a page, and marked there. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TextReader(file: File, initial: String, markdown: Boolean, title: String, onBack: () -> Unit) {
+private fun TextReader(file: File, initial: String, markdown: Boolean, title: String, marking: Marking?, onBack: () -> Unit) {
     var text by rememberSaveable(file.path) { mutableStateOf(initial) }
-    var showPreview by rememberSaveable { mutableStateOf(false) }
+    val goTo = marking?.goTo
+    // Marks are made, and shown, in the preview; going to one shows it.
+    var showPreview by rememberSaveable { mutableStateOf(goTo != null) }
+    LaunchedEffect(goTo) { if (goTo != null) showPreview = true }
     val palette = Theme.paper()
     val latest by rememberUpdatedState(text)
     // Written back when the file is left or the app goes to the background.
@@ -278,15 +306,22 @@ private fun TextReader(file: File, initial: String, markdown: Boolean, title: St
                         }
                     }
                 }
-            })
+            }) { marking?.list?.invoke() }
         },
     ) { padding ->
-        if (showPreview) {
-            Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                SelectionContainer {
-                    Text(MarkdownRenderer.render(text, palette), Modifier.widthIn(max = 600.dp).padding(horizontal = 24.dp, vertical = 28.dp).testTag("preview"))
-                }
-            }
+        if (showPreview && marking != null) {
+            val preview = remember(text, palette) { MarkdownRenderer.render(text, palette) }
+            PaperText(
+                preview, palette, ReadingSettings(look = ReadingSettings.Look.PAPER), Modifier.padding(padding).fillMaxSize(),
+                paints = marking.marks.map { it.paint }, reveal = goTo,
+                // A mark is on a line of the source: its passage is looked for from there.
+                revealFrom = goTo?.let { MarkdownRenderer.character(it.target, preview) } ?: 0,
+                onMark = { a, b ->
+                    val line = MarkdownRenderer.sourceLine(a, preview) ?: return@PaperText
+                    marking.onMark(Selection(preview.substring(a, b), line, "Line $line"))
+                },
+                tag = "preview",
+            )
         } else {
             BasicTextField(
                 value = text, onValueChange = { text = it },
@@ -295,6 +330,47 @@ private fun TextReader(file: File, initial: String, markdown: Boolean, title: St
             )
         }
     }
+}
+
+/** This file's marks, in reading order: choose one to go to it, colour it, note it or remove it.
+ *  Share sends them all as a Markdown file, as the Mac saves them. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MarksSheet(store: MarkStore, path: String, data: ByteArray, kind: String, onDismiss: () -> Unit, choose: (Mark) -> Unit) {
+    val context = LocalContext.current
+    val marks = store.marks(path)
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Marks", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (marks.isNotEmpty()) {
+                IconButton(onClick = { share(context, path, data, kind, marks) }, modifier = Modifier.testTag("exportMarks")) {
+                    Icon(Icons.Filled.Share, contentDescription = "Share these marks and notes as Markdown")
+                }
+            }
+        }
+        if (marks.isEmpty()) {
+            Text("Nothing marked yet. Select a passage and choose Mark from the menu over it.",
+                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
+        }
+        LazyColumn(Modifier.padding(bottom = 24.dp)) {
+            items(marks, key = { it.id }) { mark ->
+                MarkRow(mark, caption = mark.place, choose = { choose(mark) }, store = store)
+                HorizontalDivider(Modifier.padding(horizontal = 24.dp))
+            }
+        }
+    }
+}
+
+/** Writes the marks as Markdown and hands the file to whichever app the reader picks. */
+private fun share(context: android.content.Context, path: String, data: ByteArray, kind: String, marks: List<Mark>) {
+    val meta = if (kind == "epub") Engine.run("meta", data = data, name = File(path).name, kind = kind).output else ""
+    val title = EpubChapter.meta("Title", meta) ?: File(path).nameWithoutExtension
+    val file = File(context.cacheDir, "exports").apply { mkdirs() }.let { File(it, MarkExport.fileName(title)) }
+    file.writeText(MarkExport.markdown(title, EpubChapter.meta("Author", meta) ?: "", marks))
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+    val send = Intent(Intent.ACTION_SEND).setType("text/markdown").putExtra(Intent.EXTRA_STREAM, uri)
+        .putExtra(Intent.EXTRA_SUBJECT, file.name).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    context.startActivity(Intent.createChooser(send, "Share marks"))
 }
 
 /** The status and navigation bars' icons, dark on light paper and light on dark, while the page is on show. */

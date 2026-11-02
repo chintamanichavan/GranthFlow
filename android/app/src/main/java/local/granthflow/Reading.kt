@@ -1,18 +1,20 @@
 // How reading text is set: serif type on paper, a chapter's number and title above it, as on the
-// Mac and iPhone. Also the engine's chapter list, and Markdown set as a page.
+// Mac and iPhone. Also the engine's chapter list, and Markdown set as a page. Text is built as
+// Android spans, for the page view to show at the reader's size and spacing.
 package local.granthflow
 
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.ParagraphStyle
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.em
-import androidx.compose.ui.unit.sp
+import android.graphics.Typeface
+import android.text.Layout
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.TextPaint
+import android.text.style.AlignmentSpan
+import android.text.style.ForegroundColorSpan
+import android.text.style.MetricAffectingSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
+import android.text.style.TypefaceSpan
+import androidx.compose.ui.graphics.toArgb
 
 /** One chapter as the engine lists it. */
 data class EpubChapter(val number: Int, val title: String, val path: String) {
@@ -34,29 +36,17 @@ data class EpubChapter(val number: Int, val title: String, val path: String) {
 }
 
 object ReadingStyle {
-    const val BODY_SIZE = 17
+    const val BODY_SIZE = 17f
 
-    /** A chapter as it is shown: "CHAPTER n" and the title, centred, then the text. The label and
-     *  title grow with the text. */
-    fun chapter(text: String, number: Int, title: String, settings: ReadingSettings, palette: Palette): AnnotatedString = buildAnnotatedString {
+    /** A chapter as it is shown: "CHAPTER n" and the title, centred, then the text. Sizes are
+     *  relative to the body, so the label and title grow with the text. */
+    fun chapter(text: String, number: Int, title: String, palette: Palette): CharSequence = SpannableStringBuilder().apply {
         val t = title.trim()
-        val scale = (settings.size / 17).toFloat()
-        withStyle(ParagraphStyle(textAlign = TextAlign.Center, lineHeight = 2.2.em)) {
-            withStyle(SpanStyle(fontSize = (12 * scale).sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.16.em, color = palette.secondary)) {
-                append("CHAPTER $number")
-            }
-        }
-        if (t.isNotEmpty()) {
-            withStyle(ParagraphStyle(textAlign = TextAlign.Center, lineHeight = 1.3.em)) {
-                withStyle(SpanStyle(fontFamily = FontFamily.Serif, fontSize = (30 * scale).sp, color = palette.label)) { append(t) }
-            }
-            append("\n")
-        }
-        withStyle(ParagraphStyle(lineHeight = settings.spacing.lineHeight.em)) {
-            withStyle(SpanStyle(fontFamily = FontFamily.Serif, fontSize = settings.size.sp, color = palette.label)) {
-                append(dropLeadingTitle(text, t))
-            }
-        }
+        span("CHAPTER $number\n", AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER), RelativeSizeSpan(12f / BODY_SIZE),
+             TypefaceSpan("sans-serif-medium"), Tracking(0.16f), ForegroundColorSpan(palette.secondary.toArgb()))
+        if (t.isNotEmpty()) span("$t\n\n", AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER), RelativeSizeSpan(30f / BODY_SIZE))
+        else append("\n")
+        append(dropLeadingTitle(text, t))
     }
 
     /** Chapters usually begin with their own heading; it is already shown as the title. */
@@ -70,12 +60,11 @@ object ReadingStyle {
 }
 
 /** Markdown set as a page: headings, lists and code in reading type, with bold, italic, code and
- *  links inline. Each line of the preview is tagged with its line in the source. */
+ *  links inline. Each line of the preview carries its line in the source. */
 object MarkdownRenderer {
-    const val LINE = "sourceLine"
-    private val headingSizes = listOf(30, 23, 19, 17, 15, 14)
+    private val headingSizes = listOf(30f, 23f, 19f, 17f, 15f, 14f)
 
-    fun render(source: String, palette: Palette): AnnotatedString = buildAnnotatedString {
+    fun render(source: String, palette: Palette): CharSequence = SpannableStringBuilder().apply {
         var inFence = false
         source.split('\n').forEachIndexed { i, line ->
             val trimmed = line.trim()
@@ -86,34 +75,34 @@ object MarkdownRenderer {
             val start = length
             val level = headingLevel(trimmed)
             when {
-                inFence -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 14.sp, color = palette.secondary)) { append(line) }
-                level != null -> withStyle(
-                    SpanStyle(fontFamily = FontFamily.Serif, fontSize = headingSizes[level - 1].sp, fontWeight = FontWeight.SemiBold, color = palette.label),
-                ) { append(trimmed.trimStart('#').trim()) }
-                trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("+ ") ->
-                    withStyle(body(palette)) { append("  •  "); inline(trimmed.drop(2), palette) }
-                else -> withStyle(body(palette)) { inline(line, palette) }
+                inFence -> span(line, TypefaceSpan("monospace"), RelativeSizeSpan(14f / ReadingStyle.BODY_SIZE),
+                                ForegroundColorSpan(palette.secondary.toArgb()))
+                level != null -> span(trimmed.trimStart('#').trim(), RelativeSizeSpan(headingSizes[level - 1] / ReadingStyle.BODY_SIZE),
+                                      StyleSpan(Typeface.BOLD))
+                trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("+ ") -> {
+                    append("  •  ")
+                    inline(trimmed.drop(2), palette)
+                }
+                else -> inline(line, palette)
             }
             append("\n")
-            addStringAnnotation(LINE, (i + 1).toString(), start, length)
+            setSpan(SourceLine(i + 1), start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
-
-    private fun body(palette: Palette) = SpanStyle(fontFamily = FontFamily.Serif, fontSize = ReadingStyle.BODY_SIZE.sp, color = palette.label)
 
     private val inlinePattern = Regex("""\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|_(.+?)_|`(.+?)`|\[(.+?)]\((.+?)\)""")
 
     /** Bold, italic, code and links within one line. */
-    private fun AnnotatedString.Builder.inline(s: String, palette: Palette) {
+    private fun SpannableStringBuilder.inline(s: String, palette: Palette) {
         var at = 0
         for (m in inlinePattern.findAll(s)) {
             append(s.substring(at, m.range.first))
             val g = m.groupValues
             when {
-                g[1].isNotEmpty() || g[2].isNotEmpty() -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(g[1] + g[2]) }
-                g[3].isNotEmpty() || g[4].isNotEmpty() -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(g[3] + g[4]) }
-                g[5].isNotEmpty() -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, fontSize = 15.sp)) { append(g[5]) }
-                else -> withStyle(SpanStyle(color = palette.accent)) { append(g[6]) }
+                g[1].isNotEmpty() || g[2].isNotEmpty() -> span(g[1] + g[2], StyleSpan(Typeface.BOLD))
+                g[3].isNotEmpty() || g[4].isNotEmpty() -> span(g[3] + g[4], StyleSpan(Typeface.ITALIC))
+                g[5].isNotEmpty() -> span(g[5], TypefaceSpan("monospace"), RelativeSizeSpan(0.88f))
+                else -> span(g[6], ForegroundColorSpan(palette.accent.toArgb()))
             }
             at = m.range.last + 1
         }
@@ -126,5 +115,33 @@ object MarkdownRenderer {
         val rest = line.drop(hashes)
         return if (rest.isEmpty() || rest.first() == ' ') hashes else null
     }
+
+    /** The source line a character of the preview came from. */
+    fun sourceLine(at: Int, text: CharSequence): Int? {
+        if (text !is Spanned || text.isEmpty()) return null
+        val i = at.coerceIn(0, text.length - 1)
+        return text.getSpans(i, i + 1, SourceLine::class.java).firstOrNull()?.line
+    }
+
+    /** The first character of the preview that came from `line` or after it. */
+    fun character(forLine: Int, text: CharSequence): Int? {
+        if (text !is Spanned) return null
+        return text.getSpans(0, text.length, SourceLine::class.java).filter { it.line >= forLine }.minOfOrNull { text.getSpanStart(it) }
+    }
 }
 
+/** The 1-based line of the Markdown source a stretch of the preview came from. */
+class SourceLine(val line: Int)
+
+/** Letter spacing, in ems. */
+private class Tracking(private val em: Float) : MetricAffectingSpan() {
+    override fun updateDrawState(tp: TextPaint) { tp.letterSpacing = em }
+    override fun updateMeasureState(tp: TextPaint) { tp.letterSpacing = em }
+}
+
+/** Appends text with spans over all of it. */
+private fun SpannableStringBuilder.span(text: String, vararg spans: Any) {
+    val start = length
+    append(text)
+    for (s in spans) setSpan(s, start, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+}
