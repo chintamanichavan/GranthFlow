@@ -190,7 +190,7 @@ struct ContentView: View {
         let language = document.kind == "epub"
             ? Cover.field("language", in: Engine.run("meta", args: [], on: document.data, name: document.name, kind: document.kind).output)
             : nil
-        speaker.speak(tv, language: language)
+        speaker.speak(tv, from: ReadingPlace.topCharacter(in: tv), language: language)
     }
 
     private func remember() {

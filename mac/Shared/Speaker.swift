@@ -1,14 +1,20 @@
 // Reading aloud with the system's voices: from the selection or the top of the page, the word being
 // spoken highlighted in the text and kept in view. The voice follows the text's language; Marathi
 // falls back to a Hindi voice, which reads Devanagari, when no Marathi voice is installed.
-import AppKit
 import AVFoundation
 import NaturalLanguage
 import Observation
+#if os(macOS)
+import AppKit
+typealias PlatformTextView = NSTextView
+#else
+import UIKit
+typealias PlatformTextView = UITextView
+#endif
 
 /// The text view a window is showing, so the window can read it aloud. Panes set it as they appear.
 final class TextViewHandle {
-    weak var textView: NSTextView?
+    weak var textView: PlatformTextView?
 }
 
 @MainActor @Observable
@@ -17,7 +23,7 @@ final class Speaker: NSObject {
 
     private(set) var state = State.idle
     @ObservationIgnored private let synthesizer = AVSpeechSynthesizer()
-    @ObservationIgnored private weak var textView: NSTextView?
+    @ObservationIgnored private weak var textView: PlatformTextView?
     @ObservationIgnored private var start = 0
     @ObservationIgnored private var spoken: NSRange?
 
@@ -26,11 +32,15 @@ final class Speaker: NSObject {
         synthesizer.delegate = self
     }
 
-    /// Starts reading `tv` aloud, from its selection or else the top of what is on screen.
-    func speak(_ tv: NSTextView, language: String?) {
+    /// Starts reading `tv` aloud, from its selection or else `top`, the first character on screen.
+    func speak(_ tv: PlatformTextView, from top: Int, language: String?) {
         stop()
-        let text = tv.string
-        let from = Self.startingPoint(selection: tv.selectedRange(), top: ReadingPlace.topCharacter(in: tv), length: (text as NSString).length)
+        #if os(macOS)
+        let text = tv.string, selection = tv.selectedRange()
+        #else
+        let text = tv.text ?? "", selection = tv.selectedRange
+        #endif
+        let from = Self.startingPoint(selection: selection, top: top, length: (text as NSString).length)
         guard let utterance = Self.utterance(for: text, from: from, language: language) else { return }
         textView = tv
         start = from
@@ -64,6 +74,10 @@ final class Speaker: NSObject {
     nonisolated static func utterance(for text: String, from: Int, language: String?) -> AVSpeechUtterance? {
         let ns = text as NSString
         guard from < ns.length else { return nil }
+        #if os(iOS)
+        // Spoken even with the ring switch on silent, as other reading apps are.
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
+        #endif
         let rest = ns.substring(from: from)
         guard !rest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         let u = AVSpeechUtterance(string: rest)
@@ -96,20 +110,39 @@ final class Speaker: NSObject {
 
     // MARK: Highlighting
 
+    /// Underlines the word being spoken and keeps it in view. On the Mac a temporary attribute, so
+    /// the text is untouched; on iOS the shown text is read-only, so the attribute goes on it.
     fileprivate func paint(_ word: NSRange) {
-        guard let tv = textView, let lm = tv.layoutManager, NSMaxRange(word) <= (tv.string as NSString).length else { return }
+        guard let tv = textView, NSMaxRange(word) <= Self.length(of: tv) else { return }
         unpaint()
-        lm.addTemporaryAttribute(.underlineStyle, value: NSUnderlineStyle.thick.rawValue, forCharacterRange: word)
-        lm.addTemporaryAttribute(.underlineColor, value: NSColor.controlAccentColor, forCharacterRange: word)
+        #if os(macOS)
+        tv.layoutManager?.addTemporaryAttribute(.underlineStyle, value: NSUnderlineStyle.thick.rawValue, forCharacterRange: word)
+        tv.layoutManager?.addTemporaryAttribute(.underlineColor, value: NSColor.controlAccentColor, forCharacterRange: word)
+        #else
+        tv.textStorage.addAttributes([.underlineStyle: NSUnderlineStyle.thick.rawValue, .underlineColor: UIColor.tintColor], range: word)
+        #endif
         spoken = word
         tv.scrollRangeToVisible(word)
     }
 
     private func unpaint() {
-        guard let tv = textView, let lm = tv.layoutManager, let spoken, NSMaxRange(spoken) <= (tv.string as NSString).length else { return }
-        lm.removeTemporaryAttribute(.underlineStyle, forCharacterRange: spoken)
-        lm.removeTemporaryAttribute(.underlineColor, forCharacterRange: spoken)
+        guard let tv = textView, let spoken, NSMaxRange(spoken) <= Self.length(of: tv) else { return }
+        #if os(macOS)
+        tv.layoutManager?.removeTemporaryAttribute(.underlineStyle, forCharacterRange: spoken)
+        tv.layoutManager?.removeTemporaryAttribute(.underlineColor, forCharacterRange: spoken)
+        #else
+        tv.textStorage.removeAttribute(.underlineStyle, range: spoken)
+        tv.textStorage.removeAttribute(.underlineColor, range: spoken)
+        #endif
         self.spoken = nil
+    }
+
+    private static func length(of tv: PlatformTextView) -> Int {
+        #if os(macOS)
+        (tv.string as NSString).length
+        #else
+        tv.textStorage.length
+        #endif
     }
 
     fileprivate func finished() {

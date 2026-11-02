@@ -1,7 +1,8 @@
 // The shelf: every file in GranthFlow's folder (Documents, shown in Files as "GranthFlow"), most
 // recent first, each with the cover the Mac draws for it. Files come in from +, from "Open in
 // GranthFlow" in another app, or by being put in the folder with Files. Marks lists every
-// passage marked, in any file; one chosen here or in Spotlight opens its file there.
+// passage marked, in any file; one chosen here or in Spotlight opens its file there. The search
+// field looks through every file on the shelf.
 import CoreSpotlight
 import SwiftUI
 import UniformTypeIdentifiers
@@ -27,13 +28,19 @@ struct LibraryScreen: View {
     @State private var faces: [String: ShelfFace] = [:]
     @State private var importing = false
     @State private var open: [Opening] = []
+    @State private var query = ""
+    @State private var results: [SearchResult] = []
+    /// Every file read once and kept ready, so the next search only looks.
+    @State private var corpus: [Searchable] = []
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
         NavigationStack(path: $open) {
             Group {
-                if section == .marks { marksList } else { shelf }
+                if !query.isEmpty { searchResults } else if section == .marks { marksList } else { shelf }
             }
+            .searchable(text: $query, prompt: "Search every file")
+            .task(id: query) { await search() }
             .navigationTitle(section.title)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -95,6 +102,39 @@ struct LibraryScreen: View {
                                        description: Text("Add books and documents with +, or put them in the GranthFlow folder in Files."))
             }
         }
+    }
+
+    /// Each file with matches, and its matches; choosing one opens the file there.
+    private var searchResults: some View {
+        List {
+            ForEach(results) { result in
+                Section(result.entry.name) {
+                    ForEach(result.hits) { hit in
+                        Button { open = [Opening(path: result.entry.path, goTo: GoTo(target: hit.target, quote: query))] } label: { HitRow(hit: hit) }
+                            .accessibilityIdentifier("searchHit.\(result.entry.name).\(hit.id)")
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .overlay {
+            if results.isEmpty { ContentUnavailableView.search(text: query) }
+        }
+    }
+
+    /// Reads the shelf's files the first time, and again only those changed since, then looks.
+    private func search() async {
+        guard !query.isEmpty else { return results = [] }
+        try? await Task.sleep(for: .milliseconds(250))                     // a word typed, not each letter
+        guard !Task.isCancelled else { return }
+        let q = query, entries = library.recent, old = corpus
+        let (ready, found) = await Task.detached(priority: .userInitiated) {
+            let ready = Search.prepare(entries, reusing: old)
+            return (ready, Search.run(q, in: ready))
+        }.value
+        guard !Task.isCancelled else { return }
+        corpus = ready
+        results = found
     }
 
     /// Every mark, newest first, under the name of its file.

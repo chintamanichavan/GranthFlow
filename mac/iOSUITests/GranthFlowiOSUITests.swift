@@ -81,6 +81,49 @@ final class GranthFlowiOSUITests: XCTestCase {
         XCTAssertFalse(element(app, "mark.Quarterly").exists)              // the word pressed, not the line's first
     }
 
+    func testFindInABookGoesToTheChapter() {
+        let app = launch(tinyEpub(), as: "find.epub")
+        let page = element(app, "paperText")
+        XCTAssertTrue(page.waitForExistence(timeout: 10))
+        element(app, "findButton").tap()
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("CLOSING")                                          // any case
+        let hit = element(app, "hit.0")
+        XCTAssertTrue(hit.waitForExistence(timeout: 5))
+        XCTAssertTrue(hit.staticTexts["Second Heading"].exists)            // the hit's place is its chapter
+        hit.tap()
+        expectation(for: NSPredicate(format: "value CONTAINS %@", "Closing words."), evaluatedWith: page)
+        waitForExpectations(timeout: 5)
+    }
+
+    func testSearchEveryFileFindsAndOpens() {
+        let app = launch(Data("Ishmael speaks first.\n\nSome years ago, a whale.\n".utf8), as: "sea.md")
+        XCTAssertTrue(app.segmentedControls.buttons["Edit"].waitForExistence(timeout: 10))
+        app.navigationBars.buttons["Library"].tap()
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("whale")
+        let hit = element(app, "searchHit.sea.md.0")
+        XCTAssertTrue(hit.waitForExistence(timeout: 10))
+        XCTAssertTrue(hit.staticTexts["Line 3"].exists)
+        hit.tap()
+        XCTAssertTrue(element(app, "paperText").waitForExistence(timeout: 10))   // the note opens in its preview, at the line
+    }
+
+    func testABookCanBeReadAloudAndStopped() {
+        let app = launch(tinyEpub(), as: "aloud.epub")
+        XCTAssertTrue(element(app, "paperText").waitForExistence(timeout: 10))
+        element(app, "readAloud").tap()
+        let stop = element(app, "stopReading")
+        XCTAssertTrue(stop.waitForExistence(timeout: 5))
+        XCTAssertTrue(element(app, "pauseReading").exists)
+        stop.tap()
+        XCTAssertTrue(element(app, "readAloud").waitForExistence(timeout: 5))
+    }
+
     /// One page with one large line, near its top left.
     private func onePagePdf() -> Data {
         UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 400, height: 500)).pdfData { context in

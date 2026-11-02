@@ -20,10 +20,14 @@ struct PaperText: UIViewRepresentable {
     /// the same, new text (other settings, a new mark) keeps the passage that was at the top of the screen.
     var page: Int = 0
     var paints: [Paint] = []
-    /// A passage to bring into view and select, once text holding it is shown.
+    /// A passage to bring into view and select, once text holding it is shown: its first
+    /// occurrence, in any case, from `revealFrom` on.
     var reveal: GoTo? = nil
+    var revealFrom = 0
     /// Mark, in the menu over a selection, with the selected range; nil leaves it out.
     var onMark: ((NSRange) -> Void)? = nil
+    /// Where the reader keeps this view, to read it aloud.
+    var handle: TextViewHandle? = nil
 
     func makeUIView(context: Context) -> ColumnTextView {
         let tv = ColumnTextView()
@@ -39,6 +43,7 @@ struct PaperText: UIViewRepresentable {
     func updateUIView(_ tv: ColumnTextView, context: Context) {
         tv.backgroundColor = paper
         tv.measure = measure
+        handle?.textView = tv
         let shown = context.coordinator
         shown.onMark = onMark
         if shown.text !== text || shown.page != page || shown.paints != paints {
@@ -51,7 +56,9 @@ struct PaperText: UIViewRepresentable {
             shown.paints = paints
         }
         if let reveal, reveal != shown.reveal {
-            let r = (tv.text as NSString).range(of: reveal.quote)
+            let ns = tv.text as NSString
+            let from = min(revealFrom, ns.length)
+            let r = ns.range(of: reveal.quote, options: .caseInsensitive, range: NSRange(location: from, length: ns.length - from))
             if r.location != NSNotFound {                    // else the text holding it is not on show yet
                 tv.scroll(toCharacter: r.location)
                 tv.selectedRange = r
