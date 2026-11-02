@@ -1,8 +1,11 @@
 // Actions for the Shortcuts app (and through it Siri and Spotlight): open the book being read, get
 // marks and notes as Markdown, add files to the library. Each intent is a thin wrapper; the work is
-// in ShortcutWork, which tests call directly.
+// in ShortcutWork, which tests call directly. On iPhone and iPad the book opens in the app's own
+// shelf, and added files are copied into GranthFlow's folder.
 import AppIntents
+#if os(macOS)
 import AppKit
+#endif
 
 enum ShortcutWork {
     /// The book or document part-way through, most recently opened first.
@@ -38,7 +41,11 @@ struct OpenCurrentBook: AppIntent {
 
     @MainActor func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let entry = ShortcutWork.currentBook(in: .shared) else { return .result(dialog: "You are not part-way through a book yet.") }
+        #if os(macOS)
         NSDocumentController.shared.openDocument(withContentsOf: entry.url, display: true) { _, _, _ in }
+        #else
+        OpenRequest.shared.path = entry.path
+        #endif
         return .result(dialog: "Opening \(Cover.stem(entry.name)).")
     }
 }
@@ -61,9 +68,24 @@ struct AddToLibrary: AppIntent {
     @Parameter(title: "Files") var files: [IntentFile]
 
     @MainActor func perform() async throws -> some IntentResult & ReturnsValue<Int> {
+        #if os(macOS)
         let urls = files.compactMap(\.fileURL)
         let found = await Task.detached { Adding.scan(urls) }.value
         return .result(value: Library.shared.add(found))
+        #else
+        // A file may come as bytes only; it is written out under its own name and copied in from there.
+        let staging = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: staging) }
+        var urls: [URL] = []
+        for file in files {
+            if let url = file.fileURL { urls.append(url); continue }
+            let url = staging.appendingPathComponent(file.filename)
+            try file.data.write(to: url)
+            urls.append(url)
+        }
+        return .result(value: Importing.add(urls, to: .shared).count)
+        #endif
     }
 }
 

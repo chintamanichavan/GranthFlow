@@ -67,6 +67,11 @@ struct LibraryScreen: View {
         .onOpenURL { url in
             if let added = add([url]).first { open = [Opening(path: added.path)] }
         }
+        .onChange(of: OpenRequest.shared.path, initial: true) {             // from Shortcuts or Siri
+            guard let path = OpenRequest.shared.path else { return }
+            OpenRequest.shared.path = nil
+            open = [Opening(path: path)]
+        }
         .onContinueUserActivity(CSSearchableItemActionType) { activity in
             if let mark = SpotlightMarks.mark(for: activity, in: markStore.marks) { open = [Opening(mark)] }
         }
@@ -179,41 +184,8 @@ struct LibraryScreen: View {
         }
     }
 
-    /// Copies files from elsewhere into GranthFlow's folder and shelves them. A file already there
-    /// with the same name and bytes is shelved again rather than copied twice.
     @discardableResult
-    private func add(_ urls: [URL]) -> [URL] {
-        let folder = URL.documentsDirectory
-        var found: [(url: URL, kind: String)] = []
-        for url in urls {
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            var target = url
-            if !url.standardizedFileURL.path.hasPrefix(folder.path) {
-                target = Self.place(for: url.lastPathComponent, in: folder, matching: url)
-                if !FileManager.default.fileExists(atPath: target.path) {
-                    do { try FileManager.default.copyItem(at: url, to: target) } catch { continue }
-                }
-            }
-            guard let data = try? Data(contentsOf: target, options: .mappedIfSafe) else { continue }
-            found.append((target, Engine.detectKind(of: data, name: target.lastPathComponent)))
-        }
-        library.add(found)
-        return found.map(\.url)
-    }
-
-    /// "Book.epub", or "Book 2.epub" and on when a different file already has the name.
-    private static func place(for name: String, in folder: URL, matching source: URL) -> URL {
-        let stem = (name as NSString).deletingPathExtension, ext = (name as NSString).pathExtension
-        var candidate = folder.appendingPathComponent(name)
-        var n = 2
-        while FileManager.default.fileExists(atPath: candidate.path),
-              !FileManager.default.contentsEqual(atPath: candidate.path, andPath: source.path) {
-            candidate = folder.appendingPathComponent(ext.isEmpty ? "\(stem) \(n)" : "\(stem) \(n).\(ext)")
-            n += 1
-        }
-        return candidate
-    }
+    private func add(_ urls: [URL]) -> [URL] { Importing.add(urls, to: library) }
 
     /// Shelves files put in the folder from Files, and notices ones deleted there.
     private func scanFolder() {
