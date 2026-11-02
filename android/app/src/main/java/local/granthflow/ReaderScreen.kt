@@ -2,12 +2,14 @@
 // where reading stopped; edits to a note or a text file are written back when it is left.
 package local.granthflow
 
+import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -29,12 +31,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -55,11 +59,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -69,11 +77,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /** The file's bytes and kind, read once; then the reader for its kind. */
 @Composable
@@ -97,22 +106,30 @@ fun ReaderScreen(path: String, library: Library, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReaderBar(title: String, palette: Palette, onBack: () -> Unit, middle: (@Composable () -> Unit)? = null) {
+private fun ReaderBar(title: String, palette: Palette, onBack: () -> Unit, middle: (@Composable () -> Unit)? = null,
+                      actions: @Composable () -> Unit = {}) {
     TopAppBar(
+        actions = { actions() },
         title = { middle?.invoke() ?: Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Library") }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.window, titleContentColor = palette.label,
-                                                   navigationIconContentColor = palette.accent),
+                                                   navigationIconContentColor = palette.accent, actionIconContentColor = palette.accent),
     )
 }
 
-/** One chapter at a time, set on paper. The bottom bar turns chapters and lists them all. */
+/** One chapter at a time, set on paper. The bottom bar turns chapters and lists them all; Aa sets
+ *  the type, column and paper for this book. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EpubReader(path: String, data: ByteArray, library: Library, title: String, onBack: () -> Unit) {
     val name = File(path).name
-    val palette = Theme.paper()
+    val context = LocalContext.current
+    // This book's own settings, else the latest choice made for any book.
+    var settings by remember { mutableStateOf(library.entry(path)?.settings ?: ReadingDefaults.load(context)) }
+    var showSettings by remember { mutableStateOf(false) }
+    val palette = settings.palette(isSystemInDarkTheme())
     val chapters by produceState(emptyList<EpubChapter>(), path) {
         value = withContext(Dispatchers.IO) { EpubChapter.parse(Engine.run("chapters", data = data, name = name, kind = "epub").output) }
     }
@@ -124,24 +141,50 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
     LaunchedEffect(chapters) {
         if (chapters.isNotEmpty() && index < 0) index = chapters.indexOfFirst { it.number == library.entry(path)?.position }.coerceAtLeast(0)
     }
-    LaunchedEffect(chapters, index, palette) {
+    var text by remember { mutableStateOf<Pair<Int, String>?>(null) }      // the chapter number and its text
+    LaunchedEffect(chapters, index) {
         val chapter = chapters.getOrNull(index) ?: return@LaunchedEffect
-        val text = withContext(Dispatchers.IO) { Engine.run("text", listOf("${chapter.number}"), data, name, "epub").output }
-        page = ReadingStyle.chapter(text, chapter.number, chapter.title, palette)
-        scroll.scrollTo(0)
+        text = chapter.number to withContext(Dispatchers.IO) { Engine.run("text", listOf("${chapter.number}"), data, name, "epub").output }
         library.recordPosition(path, chapter.number, chapters.size)
     }
+    var shown by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(text, settings, palette) {
+        val (number, body) = text ?: return@LaunchedEffect
+        val chapter = chapters.first { it.number == number }
+        // A new chapter starts at its top; new settings keep about the same place in it.
+        val through = if (shown == number && scroll.maxValue > 0) scroll.value.toFloat() / scroll.maxValue else 0f
+        page = ReadingStyle.chapter(body, number, chapter.title, settings, palette)
+        withFrameNanos { }
+        scroll.scrollTo((through * scroll.maxValue).toInt())
+        shown = number
+    }
+    if (showSettings) {
+        ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+            TypeSettingsPanel(settings) {
+                settings = it
+                ReadingDefaults.save(context, it)
+                library.recordSettings(path, it)
+            }
+        }
+    }
 
+    SystemBarsFor(palette)
     Scaffold(
         containerColor = palette.window,
-        topBar = { ReaderBar(title, palette, onBack) },
+        topBar = {
+            ReaderBar(title, palette, onBack) {
+                TextButton(onClick = { showSettings = true }, modifier = Modifier.testTag("typeSettings")) {
+                    Text("Aa", fontFamily = FontFamily.Serif, fontSize = 18.sp, color = palette.accent)
+                }
+            }
+        },
         bottomBar = {
-            BottomAppBar(containerColor = palette.window) {
+            BottomAppBar(containerColor = palette.window, contentColor = palette.accent) {
                 IconButton(onClick = { index -= 1 }, enabled = index > 0, modifier = Modifier.testTag("previousChapter")) {
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous chapter")
                 }
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    TextButton(onClick = { listing = true }) {
+                    TextButton(onClick = { listing = true }, colors = ButtonDefaults.textButtonColors(contentColor = palette.accent)) {
                         Text(chapters.getOrNull(index)?.name ?: "Contents", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     DropdownMenu(expanded = listing, onDismissRequest = { listing = false }) {
@@ -156,7 +199,7 @@ private fun EpubReader(path: String, data: ByteArray, library: Library, title: S
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(scroll), horizontalAlignment = Alignment.CenterHorizontally) {
             SelectionContainer {
-                Text(page, Modifier.widthIn(max = 600.dp).padding(horizontal = 24.dp, vertical = 28.dp).testTag("page"))
+                Text(page, Modifier.widthIn(max = settings.measure + 48.dp).padding(horizontal = 24.dp, vertical = 28.dp).testTag("page"))
             }
         }
     }
@@ -250,6 +293,24 @@ private fun TextReader(file: File, initial: String, markdown: Boolean, title: St
                 textStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 15.sp, lineHeight = 22.sp, color = palette.label),
                 modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp).testTag("editor"),
             )
+        }
+    }
+}
+
+/** The status and navigation bars' icons, dark on light paper and light on dark, while the page is on show. */
+@Composable
+private fun SystemBarsFor(palette: Palette) {
+    val view = LocalView.current
+    val light = palette.window.luminance() > 0.4f
+    DisposableEffect(light) {
+        val window = (view.context as Activity).window
+        val bars = WindowCompat.getInsetsController(window, view)
+        val was = bars.isAppearanceLightStatusBars
+        bars.isAppearanceLightStatusBars = light
+        bars.isAppearanceLightNavigationBars = light
+        onDispose {
+            bars.isAppearanceLightStatusBars = was
+            bars.isAppearanceLightNavigationBars = was
         }
     }
 }

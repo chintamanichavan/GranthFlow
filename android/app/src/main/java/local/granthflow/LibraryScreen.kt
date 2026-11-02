@@ -11,8 +11,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,7 +26,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,13 +40,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -100,54 +95,26 @@ fun LibraryScreen(library: Library, onOpen: (String) -> Unit, onAdd: (List<Uri>)
 @Composable
 private fun ShelfItem(entry: LibraryEntry, palette: Palette, onOpen: () -> Unit, onRemove: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
-    // A book's own title and author, read from the book; other files go by their name.
-    val heading by produceState(entry.stem to "", entry.path) {
-        if (entry.kind == "epub") value = withContext(Dispatchers.IO) {
-            val meta = Engine.run("meta", data = entry.file.readBytes(), name = entry.name, kind = "epub").output
-            (EpubChapter.meta("Title", meta) ?: entry.stem) to (EpubChapter.meta("Author", meta) ?: "")
-        }
+    val context = LocalContext.current
+    // Made from the file itself, off the main thread; made again when the file changes on disk.
+    val face by produceState<ShelfFace?>(null, entry.path, entry.file.lastModified()) {
+        value = withContext(Dispatchers.IO) { Cover.face(entry) }
     }
     Column(
         Modifier.combinedClickable(onClick = onOpen, onLongClick = { menu = true }).testTag("shelf.${entry.name}"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Cover(heading.first, entry.kind)
-        entry.progress?.takeIf { it < 1f }?.let { LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth()) }
-        Text(heading.first, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text(entry.progressText ?: heading.second.ifEmpty { kindLabel(entry.kind) }, style = MaterialTheme.typography.bodySmall,
+        CoverView(face?.art)
+        entry.progress?.takeIf { it < 1f }?.let { p ->
+            Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(palette.secondary.copy(alpha = 0.2f))) {
+                Box(Modifier.fillMaxWidth(p).height(3.dp).background(palette.accent))
+            }
+        }
+        Text(face?.title ?: entry.stem, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(face?.let { Cover.subtitle(it, entry, context) } ?: " ", style = MaterialTheme.typography.bodySmall,
              color = palette.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text("Delete") }, onClick = { menu = false; onRemove() })
         }
     }
-}
-
-/** A plain cloth cover, coloured by kind, with the title set on it. */
-@Composable
-private fun Cover(title: String, kind: String) {
-    val cloth = when (kind) {
-        "epub" -> Color(0xFF1D2C73)
-        "pdf" -> Color(0xFF7A2E1F)
-        "markdown" -> Color(0xFF27615A)
-        "text" -> Color(0xFF5A4F3C)
-        else -> Color(0xFF3A3A40)
-    }
-    Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(RoundedCornerShape(3.dp)).background(cloth).padding(12.dp)) {
-        Column {
-            Spacer(Modifier.height(18.dp))
-            Text(title, color = Color(0xFFF2EAD8), fontFamily = FontFamily.Serif, fontSize = 17.sp, lineHeight = 21.sp,
-                 maxLines = 5, overflow = TextOverflow.Ellipsis)
-        }
-        Text(kindLabel(kind).uppercase(), color = Color(0xB3F2EAD8), fontSize = 9.sp, letterSpacing = 1.5.sp,
-             modifier = Modifier.align(Alignment.BottomStart))
-    }
-}
-
-/** What to call a kind of file on the shelf. */
-fun kindLabel(kind: String) = when (kind) {
-    "epub" -> "Book"
-    "pdf" -> "Document"
-    "markdown" -> "Note"
-    "text" -> "Text"
-    else -> "Data"
 }

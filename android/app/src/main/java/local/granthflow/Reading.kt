@@ -34,24 +34,26 @@ data class EpubChapter(val number: Int, val title: String, val path: String) {
 }
 
 object ReadingStyle {
-    const val BODY_SIZE = 18
+    const val BODY_SIZE = 17
 
-    /** A chapter as it is shown: "CHAPTER n" and the title, centred, then the text. */
-    fun chapter(text: String, number: Int, title: String, palette: Palette): AnnotatedString = buildAnnotatedString {
+    /** A chapter as it is shown: "CHAPTER n" and the title, centred, then the text. The label and
+     *  title grow with the text. */
+    fun chapter(text: String, number: Int, title: String, settings: ReadingSettings, palette: Palette): AnnotatedString = buildAnnotatedString {
         val t = title.trim()
+        val scale = (settings.size / 17).toFloat()
         withStyle(ParagraphStyle(textAlign = TextAlign.Center, lineHeight = 2.2.em)) {
-            withStyle(SpanStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.16.em, color = palette.secondary)) {
+            withStyle(SpanStyle(fontSize = (12 * scale).sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.16.em, color = palette.secondary)) {
                 append("CHAPTER $number")
             }
         }
         if (t.isNotEmpty()) {
             withStyle(ParagraphStyle(textAlign = TextAlign.Center, lineHeight = 1.3.em)) {
-                withStyle(SpanStyle(fontFamily = FontFamily.Serif, fontSize = 30.sp, color = palette.label)) { append(t) }
+                withStyle(SpanStyle(fontFamily = FontFamily.Serif, fontSize = (30 * scale).sp, color = palette.label)) { append(t) }
             }
             append("\n")
         }
-        withStyle(ParagraphStyle(lineHeight = 1.5.em)) {
-            withStyle(SpanStyle(fontFamily = FontFamily.Serif, fontSize = BODY_SIZE.sp, color = palette.label)) {
+        withStyle(ParagraphStyle(lineHeight = settings.spacing.lineHeight.em)) {
+            withStyle(SpanStyle(fontFamily = FontFamily.Serif, fontSize = settings.size.sp, color = palette.label)) {
                 append(dropLeadingTitle(text, t))
             }
         }

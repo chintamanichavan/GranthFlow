@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -28,13 +29,20 @@ import java.util.UUID
 class ReaderTest {
     @get:Rule val compose = createEmptyComposeRule()
     private val app = ApplicationProvider.getApplicationContext<GranthFlowApp>()
+    /** Each test's screens, closed when it ends so the next test starts with none. */
+    private val launched = mutableListOf<ActivityScenario<MainActivity>>()
+
+    @After fun closeScreens() = launched.forEach { it.close() }
+
+    private fun launch(path: String) {
+        launched += ActivityScenario.launch(Intent(app, MainActivity::class.java).putExtra("open", path).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
 
     /** Puts a file in GranthFlow's folder under a name of its own, and starts the app on it. */
     private fun open(bytes: ByteArray, extension: String): File {
         val file = File(app.books, "t-${UUID.randomUUID()}.$extension").apply { writeBytes(bytes) }
         app.library.add(listOf(file to Engine.detectKind(bytes, file.name)))
-        val intent = Intent(app, MainActivity::class.java).putExtra("open", file.path).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        ActivityScenario.launch<MainActivity>(intent)
+        launch(file.path)
         return file
     }
 
@@ -52,6 +60,20 @@ class ReaderTest {
         val shelved = compose.onNodeWithTag("shelf.${file.name}")
         shelved.assert(hasText("Finished", substring = true))                 // the last chapter of two
         compose.waitUntil(10_000) { runCatching { shelved.assert(hasText("Tiny Book", substring = true)) }.isSuccess }   // read from the book
+    }
+
+    @Test fun aBooksTypeIsSetWithAaAndKeptForIt() {
+        val file = open(Fixtures.epub(), "epub")
+        waitFor("page", "Hello book & reader.")
+        compose.onNodeWithTag("typeSettings").performClick()
+        compose.onNodeWithTag("textLarger").performClick()
+        compose.onNodeWithTag("textSize").assertTextContains("${ReadingDefaults.load(app).size.toInt()} pt")
+        compose.onNodeWithTag("look.Night").performClick()
+        compose.onNodeWithTag("Line spacing.Loose").performClick()
+        val kept = app.library.entry(file.path)!!.settings!!
+        assertEquals(ReadingSettings.Look.NIGHT, kept.look)
+        assertEquals(ReadingSettings.Spacing.LOOSE, kept.spacing)
+        assertEquals(kept, ReadingDefaults.load(app))                       // the next new book starts this way
     }
 
     @Test fun aPdfShowsItsPages() {
@@ -72,7 +94,7 @@ class ReaderTest {
 
     @Test fun aFileThatHasGoneSaysSo() {
         val gone = File(app.books, "gone-${UUID.randomUUID()}.epub")
-        ActivityScenario.launch<MainActivity>(Intent(app, MainActivity::class.java).putExtra("open", gone.path).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        launch(gone.path)
         waitFor("unreadable", "could not be read")
     }
 

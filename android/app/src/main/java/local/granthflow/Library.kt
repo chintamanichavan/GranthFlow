@@ -5,11 +5,11 @@ package local.granthflow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class LibraryEntry(
     val path: String,
@@ -20,6 +20,8 @@ data class LibraryEntry(
     val total: Int? = null,
     /** On the shelf but not opened yet. */
     val unopened: Boolean = false,
+    /** How this book is set for reading; null until the reader changes it. */
+    val settings: ReadingSettings? = null,
 ) {
     val file get() = File(path)
     val name: String get() = file.name
@@ -79,6 +81,11 @@ class Library(private val file: File) {
         save()
     }
 
+    fun recordSettings(path: String, settings: ReadingSettings) {
+        val e = entry(path) ?: return
+        if (e.settings != settings) replace(path, e.copy(settings = settings))
+    }
+
     fun forget(path: String) {
         entries = entries.filter { it.path != path }
         save()
@@ -99,6 +106,7 @@ class Library(private val file: File) {
                     path = o.getString("path"), kind = o.getString("kind"), opened = Instant.parse(o.getString("opened")),
                     position = o.optInt("position").takeIf { o.has("position") }, total = o.optInt("total").takeIf { o.has("total") },
                     unopened = o.optBoolean("unopened"),
+                    settings = o.optJSONObject("settings")?.let(ReadingSettings::fromJson),
                 )
             }.getOrNull()
         }
@@ -114,6 +122,7 @@ class Library(private val file: File) {
                 e.position?.let { put("position", it) }
                 e.total?.let { put("total", it) }
                 if (e.unopened) put("unopened", true)
+                e.settings?.let { put("settings", it.toJson()) }
             })
         }
         file.parentFile?.mkdirs()
