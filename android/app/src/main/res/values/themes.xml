@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws everything; this only gives the window the library's colour while it starts. -->
+    <style name="Theme.GranthFlow" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/background_light</item>
+    </style>
+</resources>
