@@ -1,7 +1,6 @@
 // Marks in Spotlight: each is indexed under its passage, with the note, the file and the place, so a
 // search for a word from a highlight or a note finds it; choosing the result opens the file there.
 // Spotlight's own preview shows the passage and the note.
-import AppKit
 import CoreSpotlight
 import UniformTypeIdentifiers
 

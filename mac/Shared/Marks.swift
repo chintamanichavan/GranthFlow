@@ -1,18 +1,18 @@
 // Marks: passages you highlighted, kept apart from the files so marking never changes a file.
 // Stored as pretty-printed JSON beside the library.
-import AppKit
+import Foundation
 import Observation
 
 /// The colour a mark is painted in. A reader might use yellow for ideas and pink for quotes.
 enum MarkColour: String, Codable, CaseIterable {
     case yellow, pink, green, blue
 
-    var paint: NSColor {
+    var paint: PlatformColor {
         switch self {
         case .yellow: Theme.mark
-        case .pink: NSColor(hex: "#FF9EC4")!
-        case .green: NSColor(hex: "#A6E3A1")!
-        case .blue: NSColor(hex: "#9CC8FF")!
+        case .pink: PlatformColor(hex: "#FF9EC4")!
+        case .green: PlatformColor(hex: "#A6E3A1")!
+        case .blue: PlatformColor(hex: "#9CC8FF")!
         }
     }
 
@@ -105,6 +105,9 @@ final class MarkStore {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
         marks = (try? Data(contentsOf: file)).flatMap { try? d.decode([Mark].self, from: $0) } ?? []
+        #if os(iOS)
+        marks = marks.map { var m = $0; m.path = Library.rebased($0.path); return m }
+        #endif
     }
 
     /// Newest first.

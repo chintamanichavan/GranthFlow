@@ -56,42 +56,22 @@ final class PaperTextView: NSTextView {
     }
 }
 
-enum Highlights {
+extension Highlights {
     /// Paints every occurrence of each marked quote in its colour. Temporary attributes, so the
-    /// highlight is drawn but never becomes part of the text. On dark paper the colour is laid on
-    /// lighter, so the light text over it stays readable.
+    /// highlight is drawn but never becomes part of the text.
     static func apply(_ paints: [Paint], to tv: NSTextView) {
         guard let lm = tv.layoutManager else { return }
         let ns = tv.string as NSString
         lm.removeTemporaryAttribute(.backgroundColor, forCharacterRange: NSRange(location: 0, length: ns.length))
-        let strength = isDark(tv.backgroundColor) ? 0.38 : 0.7
+        let alpha = strength(onDark: isDark(tv.backgroundColor))
         for paint in paints where !paint.quote.isEmpty {
             for r in ranges(of: paint.quote, in: ns) {
-                lm.addTemporaryAttribute(.backgroundColor, value: paint.colour.paint.withAlphaComponent(strength), forCharacterRange: r)
+                lm.addTemporaryAttribute(.backgroundColor, value: paint.colour.paint.withAlphaComponent(alpha), forCharacterRange: r)
             }
         }
     }
 
     static func isDark(_ colour: NSColor) -> Bool { (colour.usingColorSpace(.sRGB)?.brightnessComponent ?? 1) < 0.4 }
-
-    static func ranges(of quote: String, in ns: NSString) -> [NSRange] {
-        var out: [NSRange] = []
-        var from = 0
-        while from < ns.length {
-            let r = ns.range(of: quote, options: [], range: NSRange(location: from, length: ns.length - from))
-            if r.location == NSNotFound { break }
-            out.append(r)
-            from = NSMaxRange(r)
-        }
-        return out
-    }
-
-    /// The 1-based line holding a UTF-16 offset.
-    static func line(at location: Int, in ns: NSString) -> Int {
-        var line = 1
-        for i in 0..<min(location, ns.length) where ns.character(at: i) == 0x0A { line += 1 }
-        return line
-    }
 }
 
 /// AppKit reports selection and page changes even when the app made them itself, which happens

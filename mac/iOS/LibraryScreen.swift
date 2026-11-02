@@ -1,66 +1,67 @@
 // The shelf: every file in GranthFlow's folder (Documents, shown in Files as "GranthFlow"), most
 // recent first, each with the cover the Mac draws for it. Files come in from +, from "Open in
-// GranthFlow" in another app, or by being put in the folder with Files.
+// GranthFlow" in another app, or by being put in the folder with Files. Marks lists every
+// passage marked, in any file; one chosen here or in Spotlight opens its file there.
+import CoreSpotlight
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// A file to open, and the mark in it to go to.
+struct Opening: Hashable {
+    let path: String
+    var goTo: GoTo? = nil
+
+    init(path: String, goTo: GoTo? = nil) {
+        self.path = path
+        self.goTo = goTo
+    }
+
+    init(_ mark: Mark) { self.init(path: mark.path, goTo: GoTo(target: mark.target, quote: mark.quote)) }
+}
+
 struct LibraryScreen: View {
     private let library = Library.shared
+    private let markStore = MarkStore.shared
     @State private var section = LibrarySection.library
     /// Faces by path and progress, so a cover's line is redrawn when reading moves on.
     @State private var faces: [String: ShelfFace] = [:]
     @State private var importing = false
-    @State private var open: [String] = []
+    @State private var open: [Opening] = []
     @Environment(\.scenePhase) private var phase
-
-    /// Marks have no screen on iOS yet.
-    private static let sections = LibrarySection.allCases.filter { $0 != .marks }
 
     var body: some View {
         NavigationStack(path: $open) {
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120, maximum: 170), spacing: 20, alignment: .top)], spacing: 28) {
-                    ForEach(section.entries(in: library)) { entry in
-                        NavigationLink(value: entry.path) {
-                            ShelfItem(entry: entry, face: faces[key(entry)])
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu { menu(for: entry) }
-                        .task(id: key(entry)) { await loadFace(entry) }
-                    }
-                }
-                .padding()
-            }
-            .overlay {
-                if section.entries(in: library).isEmpty {
-                    ContentUnavailableView("Nothing here yet", systemImage: section.symbol,
-                                           description: Text("Add books and documents with +, or put them in the GranthFlow folder in Files."))
-                }
+            Group {
+                if section == .marks { marksList } else { shelf }
             }
             .navigationTitle(section.title)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Menu {
                         Picker("Show", selection: $section) {
-                            ForEach(Self.sections) { Label($0.title, systemImage: $0.symbol).tag($0) }
+                            ForEach(LibrarySection.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
                         }
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
+                    .accessibilityIdentifier("sectionMenu")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button { importing = true } label: { Image(systemName: "plus") }
                 }
             }
-            .navigationDestination(for: String.self) { path in
-                ReaderScreen(url: URL(fileURLWithPath: path))
+            .navigationDestination(for: Opening.self) { opening in
+                ReaderScreen(url: URL(fileURLWithPath: opening.path), goTo: opening.goTo)
             }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
                 if case let .success(urls) = result { add(urls) }
             }
         }
         .onOpenURL { url in
-            if let added = add([url]).first { open = [added.path] }
+            if let added = add([url]).first { open = [Opening(path: added.path)] }
+        }
+        .onContinueUserActivity(CSSearchableItemActionType) { activity in
+            if let mark = SpotlightMarks.mark(for: activity, in: markStore.marks) { open = [Opening(mark)] }
         }
         .onChange(of: phase, initial: true) {
             if phase == .active { scanFolder() }
@@ -69,7 +70,50 @@ struct LibraryScreen: View {
             // `--open <path>`, as on the Mac, so scripts and UI tests can start on a file.
             let args = CommandLine.arguments
             if let i = args.firstIndex(of: "--open"), i + 1 < args.count {
-                open = [URL(fileURLWithPath: args[i + 1], relativeTo: .documentsDirectory).standardizedFileURL.path]
+                open = [Opening(path: URL(fileURLWithPath: args[i + 1], relativeTo: .documentsDirectory).standardizedFileURL.path)]
+            }
+        }
+    }
+
+    private var shelf: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120, maximum: 170), spacing: 20, alignment: .top)], spacing: 28) {
+                ForEach(section.entries(in: library)) { entry in
+                    NavigationLink(value: Opening(path: entry.path)) {
+                        ShelfItem(entry: entry, face: faces[key(entry)])
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu { menu(for: entry) }
+                    .task(id: key(entry)) { await loadFace(entry) }
+                }
+            }
+            .padding()
+        }
+        .overlay {
+            if section.entries(in: library).isEmpty {
+                ContentUnavailableView("Nothing here yet", systemImage: section.symbol,
+                                       description: Text("Add books and documents with +, or put them in the GranthFlow folder in Files."))
+            }
+        }
+    }
+
+    /// Every mark, newest first, under the name of its file.
+    private var marksList: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 2) {
+                ForEach(markStore.all) { mark in
+                    MarkRow(mark: mark, caption: "\(mark.name)  ·  \(mark.place)", choose: { open = [Opening(mark)] },
+                            remove: { markStore.remove(mark) }, setNote: { markStore.setNote($0, for: mark) },
+                            setColour: { markStore.setColour($0, for: mark) })
+                    Divider()
+                }
+            }
+            .padding(.horizontal)
+        }
+        .overlay {
+            if markStore.marks.isEmpty {
+                ContentUnavailableView("No marks yet", systemImage: LibrarySection.marks.symbol,
+                                       description: Text("Select a passage in any book or document and choose Mark. It will be kept here."))
             }
         }
     }

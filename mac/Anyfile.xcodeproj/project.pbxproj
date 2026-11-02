@@ -21,6 +21,13 @@
 			remoteGlobalIDString = DDDDDDDDDDDDDDDDDDDDDD01;
 			remoteInfo = Anyfile;
 		};
+		DDDDDDDDDDDDDDDDDDDDDD23 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAAAAAAAAAAAAAAAAAAAAA01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DDDDDDDDDDDDDDDDDDDDDD04;
+			remoteInfo = GranthFlowiOS;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +35,7 @@
 		FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AnyfileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFFFFFFFFFFFFFFFFFFFFF04 /* GranthFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GranthFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFFFFFFFFFFFFFFFFFFFFF05 /* GranthFlowiOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GranthFlowiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -115,6 +123,11 @@
 			path = iOS;
 			sourceTree = "<group>";
 		};
+		CCCCCCCCCCCCCCCCCCCCCC07 /* iOSUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = iOSUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -146,6 +159,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EEEEEEEEEEEEEEEEEEEEEE42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -158,6 +178,7 @@
 				CCCCCCCCCCCCCCCCCCCCCC04 /* core */,
 				CCCCCCCCCCCCCCCCCCCCCC02 /* AnyfileTests */,
 				CCCCCCCCCCCCCCCCCCCCCC03 /* AnyfileUITests */,
+				CCCCCCCCCCCCCCCCCCCCCC07 /* iOSUITests */,
 				BBBBBBBBBBBBBBBBBBBBBB02 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -169,6 +190,7 @@
 				FFFFFFFFFFFFFFFFFFFFFF02 /* AnyfileTests.xctest */,
 				FFFFFFFFFFFFFFFFFFFFFF03 /* AnyfileUITests.xctest */,
 				FFFFFFFFFFFFFFFFFFFFFF04 /* GranthFlow.app */,
+				FFFFFFFFFFFFFFFFFFFFFF05 /* GranthFlowiOSUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -270,6 +292,29 @@
 			productReference = FFFFFFFFFFFFFFFFFFFFFF04 /* GranthFlow.app */;
 			productType = "com.apple.product-type.application";
 		};
+		DDDDDDDDDDDDDDDDDDDDDD05 /* GranthFlowiOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAAAAAAAAAAAAAAAAAAAAA16 /* Build configuration list for PBXNativeTarget "GranthFlowiOSUITests" */;
+			buildPhases = (
+				EEEEEEEEEEEEEEEEEEEEEE41 /* Sources */,
+				EEEEEEEEEEEEEEEEEEEEEE42 /* Frameworks */,
+				EEEEEEEEEEEEEEEEEEEEEE43 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DDDDDDDDDDDDDDDDDDDDDD13 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				CCCCCCCCCCCCCCCCCCCCCC07 /* iOSUITests */,
+			);
+			name = GranthFlowiOSUITests;
+			packageProductDependencies = (
+			);
+			productName = GranthFlowiOSUITests;
+			productReference = FFFFFFFFFFFFFFFFFFFFFF05 /* GranthFlowiOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -306,6 +351,7 @@
 				DDDDDDDDDDDDDDDDDDDDDD02 /* AnyfileTests */,
 				DDDDDDDDDDDDDDDDDDDDDD03 /* AnyfileUITests */,
 				DDDDDDDDDDDDDDDDDDDDDD04 /* GranthFlowiOS */,
+				DDDDDDDDDDDDDDDDDDDDDD05 /* GranthFlowiOSUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -333,6 +379,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		EEEEEEEEEEEEEEEEEEEEEE33 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EEEEEEEEEEEEEEEEEEEEEE43 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -370,6 +423,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EEEEEEEEEEEEEEEEEEEEEE41 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -382,6 +442,11 @@
 			isa = PBXTargetDependency;
 			target = DDDDDDDDDDDDDDDDDDDDDD01 /* Anyfile */;
 			targetProxy = DDDDDDDDDDDDDDDDDDDDDD22 /* PBXContainerItemProxy */;
+		};
+		DDDDDDDDDDDDDDDDDDDDDD13 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DDDDDDDDDDDDDDDDDDDDDD04 /* GranthFlowiOS */;
+			targetProxy = DDDDDDDDDDDDDDDDDDDDDD23 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -673,6 +738,44 @@
 			};
 			name = Release;
 		};
+		BBBBBBBBBBBBBBBBBBBBBB1B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GranthFlowiOS;
+			};
+			name = Debug;
+		};
+		BBBBBBBBBBBBBBBBBBBBBB1C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = local.granthflow.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = GranthFlowiOS;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -717,6 +820,15 @@
 			buildConfigurations = (
 				BBBBBBBBBBBBBBBBBBBBBB19 /* Debug */,
 				BBBBBBBBBBBBBBBBBBBBBB1A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AAAAAAAAAAAAAAAAAAAAAA16 /* Build configuration list for PBXNativeTarget "GranthFlowiOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BBBBBBBBBBBBBBBBBBBBBB1B /* Debug */,
+				BBBBBBBBBBBBBBBBBBBBBB1C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

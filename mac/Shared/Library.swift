@@ -87,19 +87,17 @@ final class Library {
         let data = try? Data(contentsOf: file)
         entries = data.flatMap { try? Self.decoder.decode([LibraryEntry].self, from: $0) } ?? []
         #if os(iOS)
-        entries = entries.map(Self.rebased)
+        entries = entries.map { var e = $0; e.path = Self.rebased($0.path); return e }
         #endif
         checkFiles()
     }
 
     #if os(iOS)
     /// iOS can move the app's container on reinstall or update; a file kept in Documents is found
-    /// again under the current one.
-    private static func rebased(_ entry: LibraryEntry) -> LibraryEntry {
-        guard let r = entry.path.range(of: "/Documents/") else { return entry }
-        var e = entry
-        e.path = URL.documentsDirectory.appendingPathComponent(String(entry.path[r.upperBound...])).path
-        return e
+    /// again under the current one. Marks are kept by path too, and found again the same way.
+    nonisolated static func rebased(_ path: String) -> String {
+        guard let r = path.range(of: "/Documents/") else { return path }
+        return URL.documentsDirectory.appendingPathComponent(String(path[r.upperBound...])).path
     }
     #endif
 

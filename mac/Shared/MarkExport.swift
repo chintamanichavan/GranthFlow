@@ -1,7 +1,10 @@
 // A book's marks as Markdown: the title, then each passage as a quote with the reader's note under
 // it, grouped by chapter or page in reading order. Ready to drop into a notes app.
+import Foundation
+#if os(macOS)
 import AppKit
 import UniformTypeIdentifiers
+#endif
 
 enum MarkExport {
     static func markdown(title: String, author: String = "", marks: [Mark], on date: Date = Date()) -> String {
@@ -41,6 +44,7 @@ enum MarkExport {
         return "\(safe) — marks.md"
     }
 
+    #if os(macOS)
     /// Asks where to save, then writes the file. Returns false when cancelled or the write failed.
     @MainActor @discardableResult
     static func save(title: String, author: String, marks: [Mark]) -> Bool {
@@ -57,4 +61,5 @@ enum MarkExport {
             return false
         }
     }
+    #endif
 }
