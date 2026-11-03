@@ -6,6 +6,7 @@
 #include <QStandardPaths>
 #include <QUrl>
 
+#include "Faces.h"
 #include "Library.h"
 
 int main(int argc, char *argv[]) {
@@ -20,7 +21,9 @@ int main(int argc, char *argv[]) {
     const QStringList opened = library.add(named);
 
     QQmlApplicationEngine engine;
-    engine.setInitialProperties({{"library", QVariant::fromValue(&library)}, {"openPath", opened.value(0)}});
+    auto *faces = new Faces;                                // the engine owns its image providers
+    engine.addImageProvider("cover", faces);
+    engine.setInitialProperties({{"library", QVariant::fromValue(&library)}, {"faces", QVariant::fromValue(faces)}, {"openPath", opened.value(0)}});
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.loadFromModule("GranthFlow", "Main");
     return app.exec();

@@ -21,7 +21,7 @@ QString dropLeadingTitle(const QString &text, const QString &title) {
     return rest;
 }
 
-QString chapter(const QString &text, int number, const QString &title, double size, const QColor &secondary) {
+QString chapter(const QString &text, int number, const QString &title, double size, double lineHeight, const QColor &secondary) {
     const QString t = title.trimmed();
     QString html = QStringLiteral("<p align=\"center\" style=\"font-family: sans-serif; font-size: %1; color: %2; margin-bottom: %3px\">"
                                   "CHAPTER %4</p>")
@@ -33,7 +33,7 @@ QString chapter(const QString &text, int number, const QString &title, double si
     for (const QString &para : dropLeadingTitle(text, t).split(QRegularExpression("\\n\\s*\\n"), Qt::SkipEmptyParts)) {
         QString body = para.trimmed().toHtmlEscaped();
         body.replace('\n', "<br/>");
-        html += QStringLiteral("<p style=\"margin-bottom: %1px; line-height: 150%\">%2</p>").arg(size * 0.8).arg(body);
+        html += QStringLiteral("<p style=\"margin-bottom: %1px; line-height: %2%\">%3</p>").arg(size * 0.8).arg(lineHeight * 100).arg(body);
     }
     return html;
 }
@@ -62,14 +62,14 @@ static QString inlineMarks(const QString &s, double size, const QColor &accent) 
     return out + s.mid(at).toHtmlEscaped();
 }
 
-QString markdown(const QString &source, double size, const QColor &secondary, const QColor &accent) {
+QString markdown(const QString &source, double size, double lineHeight, const QColor &secondary, const QColor &accent) {
     static const double headingSizes[] = {30, 23, 19, 17, 15, 14};
     QString html;
     bool inFence = false;
     for (const QString &line : source.split('\n')) {
         const QString trimmed = line.trimmed();
         if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) { inFence = !inFence; continue; }
-        const QString block = QStringLiteral("<p style=\"margin: 0; line-height: 150%; %1\">%2</p>");
+        const QString block = QStringLiteral("<p style=\"margin: 0; line-height: %1%; %2\">%3</p>").arg(lineHeight * 100);
         if (inFence) {
             html += block.arg(QStringLiteral("font-family: monospace; white-space: pre; font-size: %1; color: %2").arg(pt(size * 14 / 17), css(secondary)),
                               line.toHtmlEscaped());

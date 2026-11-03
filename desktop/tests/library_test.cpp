@@ -25,7 +25,10 @@ class LibraryTest : public QObject {
     QString libraryFile() { return dir.filePath("app/library.json"); }
 
 private slots:
-    void init() { QFile::remove(libraryFile()); }
+    void init() {
+        QFile::remove(libraryFile());
+        QFile::remove(dir.filePath("app/preferences.ini"));
+    }
 
     void filesAndFoldersAreShelvedWithTheirKinds() {
         const QString book = file("Book.epub", QByteArray::fromStdString(epubBytes()));
@@ -86,6 +89,32 @@ private slots:
         QCOMPARE(o["position"].toInt(), 1);
         QCOMPARE(o["total"].toInt(), 2);
         QVERIFY(o["unopened"].toBool());
+    }
+
+    void aBookKeepsItsSettingsAndANewBookStartsWithTheLatest() {
+        const QString a = file("A.epub", QByteArray::fromStdString(epubBytes())), b = file("B.epub", QByteArray::fromStdString(epubBytes()));
+        {
+            Library library(libraryFile());
+            library.add({QUrl::fromLocalFile(a), QUrl::fromLocalFile(b)});
+            QCOMPARE(library.settings(a)["size"].toDouble(), 17.0);
+            QCOMPARE(library.settings(a)["look"].toString(), QString("auto"));
+            const QVariantMap kept = library.recordSettings(a, {{"size", 40}, {"spacing", "Loose"}, {"look", "night"}, {"width", "odd"}});
+            QCOMPARE(kept["size"].toDouble(), 28.0);                // as large as text goes
+            QCOMPARE(kept["spacing"].toString(), QString("loose"));
+            QCOMPARE(kept["width"].toString(), QString("normal"));   // unknown: the default
+            QCOMPARE(kept["lineHeight"].toDouble(), 1.7);
+            QCOMPARE(kept["measure"].toDouble(), 560.0 * 28 / 17);
+        }
+        Library again(libraryFile());
+        QCOMPARE(again.settings(a)["look"].toString(), QString("night"));
+        QCOMPARE(again.settings(b)["look"].toString(), QString("night"));   // b has none of its own: the latest choice
+        again.recordSettings(b, {{"look", "sepia"}});
+        QCOMPARE(again.settings(a)["look"].toString(), QString("night"));   // a keeps its own
+        QFile f(libraryFile());
+        QVERIFY(f.open(QIODevice::ReadOnly));
+        for (const QJsonValue &v : QJsonDocument::fromJson(f.readAll()).array())
+            if (v["path"].toString() == a)
+                QCOMPARE(v["settings"].toObject(), (QJsonObject{{"size", 28}, {"spacing", "loose"}, {"width", "normal"}, {"look", "night"}}));
     }
 
     void forgettingAndGoneFilesLeaveTheShelfButNotTheDisk() {

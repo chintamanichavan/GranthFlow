@@ -28,7 +28,7 @@ Item {
             root.previewing = currentIndex === 1
             if (root.previewing) {
                 root.save()
-                preview.text = root.doc.markdownHtml(editor.text, Theme.bodySize, Theme.paper.secondary, Theme.paper.accent)
+                preview.text = root.doc.markdownHtml(editor.text, Theme.bodySize, Theme.lineHeight, Theme.paper.secondary, Theme.paper.accent)
             }
         }
         TabButton { text: qsTr("Edit") }

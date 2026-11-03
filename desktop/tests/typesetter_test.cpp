@@ -15,7 +15,7 @@ class TypesetterTest : public QObject {
 
 private slots:
     void aChapterHasItsNumberAndTitleThenItsParagraphs() {
-        const QString page = plain(Typesetter::chapter("Opening\n\nFirst <para> & more.\n\nSecond\nline.", 1, "Opening", 17, Qt::gray));
+        const QString page = plain(Typesetter::chapter("Opening\n\nFirst <para> & more.\n\nSecond\nline.", 1, "Opening", 17, 1.45, Qt::gray));
         QVERIFY(page.contains("CHAPTER"));
         QCOMPARE(page.count("Opening"), 1);                       // the chapter's own heading is not shown twice
         QVERIFY(page.contains("First <para> & more."));
@@ -31,7 +31,7 @@ private slots:
     void markdownIsSetLineByLine() {
         const QString source = "# Title\n\nSome **bold** and *italic*, `code` and [a link](https://x).\n- item\n```\nlet x = 1\n```";
         QTextDocument d;
-        d.setHtml(Typesetter::markdown(source, 17, Qt::gray, Qt::blue));
+        d.setHtml(Typesetter::markdown(source, 17, 1.45, Qt::gray, Qt::blue));
         const QStringList lines = d.toPlainText().split('\n');
         QCOMPARE(lines[0], QString("Title"));
         QCOMPARE(lines[2], QString("Some bold and italic, code and a link."));

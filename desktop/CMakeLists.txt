@@ -25,6 +25,9 @@ qt_add_qml_module(granthflow_core
     src/Library.h src/Library.cpp
     src/Document.h src/Document.cpp
     src/Typesetter.h src/Typesetter.cpp
+    src/ReadingSettings.h src/ReadingSettings.cpp
+    src/Cover.h src/Cover.cpp
+    src/Faces.h src/Faces.cpp
   QML_FILES
     qml/Main.qml
     qml/Theme.qml
@@ -34,6 +37,7 @@ qt_add_qml_module(granthflow_core
     qml/PdfReader.qml
     qml/TextReader.qml
     qml/HexReader.qml
+    qml/TypeSettingsPanel.qml
 )
 target_include_directories(granthflow_core PUBLIC src)
 target_link_libraries(granthflow_core PUBLIC anyfile_core Qt6::Quick Qt6::QuickControls2 Qt6::Pdf Qt6::PdfQuick)
@@ -46,7 +50,7 @@ target_link_libraries(granthflow PRIVATE granthflow_core granthflow_coreplugin)
 set_target_properties(granthflow PROPERTIES OUTPUT_NAME GranthFlow WIN32_EXECUTABLE ON MACOSX_BUNDLE ON)
 
 enable_testing()
-foreach(name library typesetter document ui)
+foreach(name library typesetter document cover ui)
   qt_add_executable(${name}_test tests/${name}_test.cpp)
   target_link_libraries(${name}_test PRIVATE granthflow_core granthflow_coreplugin Qt6::Test)
   target_include_directories(${name}_test PRIVATE ../tests/unit)        # the engine's own EPUB and PDF fixtures

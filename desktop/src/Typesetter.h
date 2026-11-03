@@ -8,14 +8,14 @@
 namespace Typesetter {
 
 /// "CHAPTER n" and the title, centred, then the chapter's paragraphs.
-QString chapter(const QString &text, int number, const QString &title, double size, const QColor &secondary);
+QString chapter(const QString &text, int number, const QString &title, double size, double lineHeight, const QColor &secondary);
 
 /// Chapters usually begin with their own heading; it is already shown as the title.
 QString dropLeadingTitle(const QString &text, const QString &title);
 
 /// Markdown as a page: headings, lists and code in reading type, with bold, italic, code and links
 /// inline. Each line of the source is one block of the page.
-QString markdown(const QString &source, double size, const QColor &secondary, const QColor &accent);
+QString markdown(const QString &source, double size, double lineHeight, const QColor &secondary, const QColor &accent);
 
 /// 1..6 for "# Title" to "###### Title", 0 for anything else.
 int headingLevel(const QString &line);

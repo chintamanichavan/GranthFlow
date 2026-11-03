@@ -1,5 +1,5 @@
-// The shelf: every file brought in, most recent first, each with its title and how far reading has
-// got. + or File ▸ Open brings files in; dropping files or folders on the window does too. A
+// The shelf: every file brought in, most recent first, each as a cover made from the file, with its
+// title and how far reading has got. + or File ▸ Open brings files in; dropping files or folders on the window does too. A
 // right-click takes a file off the shelf, leaving the file itself where it is.
 import QtQuick
 import QtQuick.Controls
@@ -9,6 +9,7 @@ import GranthFlow
 Page {
     id: root
     required property Library library
+    required property Faces faces
     signal open(string path)
     signal add()
 
@@ -51,6 +52,9 @@ Page {
             required property string kind
             required property real progress
             required property string progressText
+            required property double modified
+            /// Filled in once the cover is made; a book's title comes from the book.
+            readonly property var caption: (root.faces.revision, root.faces.caption(path))
             objectName: "shelf." + path.split("/").pop()
             width: grid.cellWidth - 16
             height: grid.cellHeight - 12
@@ -59,23 +63,33 @@ Page {
 
             contentItem: ColumnLayout {
                 spacing: 6
-                Rectangle {                                // the cover: covers from the files come next
+                Item {
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 168
                     Layout.alignment: Qt.AlignHCenter
-                    radius: 3
-                    color: Theme.paper.window
-                    border.color: Qt.rgba(0, 0, 0, 0.12)
-                    Label {
+                    Rectangle {                            // a soft shadow under the cover
                         anchors.fill: parent
-                        anchors.margins: 12
-                        text: item.stem
-                        wrapMode: Text.Wrap
-                        elide: Text.ElideRight
-                        font.family: Theme.serif
-                        font.pixelSize: 15
-                        color: Theme.paper.label
-                        horizontalAlignment: Text.AlignHCenter
+                        anchors.topMargin: 2
+                        anchors.bottomMargin: -2
+                        radius: 4
+                        color: Qt.rgba(0, 0, 0, cover.status === Image.Ready ? 0.14 : 0)
+                    }
+                    Rectangle {                            // a quiet placeholder while the cover is made
+                        anchors.fill: parent
+                        radius: 3
+                        visible: cover.status !== Image.Ready
+                        color: Qt.alpha(Theme.library.secondary, 0.12)
+                    }
+                    Image {
+                        id: cover
+                        objectName: "cover"
+                        anchors.fill: parent
+                        asynchronous: true
+                        // The modified time makes a changed file's cover new.
+                        source: "image://cover/" + encodeURIComponent(item.path) + "?" + item.modified
+                        sourceSize: Qt.size(240, 336)
+                        smooth: true
+                        mipmap: true
                     }
                 }
                 Rectangle {                                // how far reading has got
@@ -86,8 +100,15 @@ Page {
                     color: Qt.alpha(Theme.library.secondary, 0.2)
                     Rectangle { width: parent.width * Math.max(0, item.progress); height: 3; radius: 2; color: Theme.library.accent }
                 }
-                Label { text: item.stem; Layout.fillWidth: true; elide: Text.ElideRight; maximumLineCount: 2; wrapMode: Text.Wrap; font.weight: Font.DemiBold; color: Theme.library.label }
-                Label { text: item.progressText || ({ epub: qsTr("Book"), pdf: qsTr("Document"), markdown: qsTr("Note"), text: qsTr("Text") })[item.kind] || qsTr("File"); Layout.fillWidth: true; elide: Text.ElideRight; color: Theme.library.secondary; font.pixelSize: 12 }
+                Label { text: item.caption.title ?? item.stem; Layout.fillWidth: true; elide: Text.ElideRight; maximumLineCount: 2; wrapMode: Text.Wrap; font.weight: Font.DemiBold; color: Theme.library.label }
+                Label {                                    // "Book · Herman Melville", "Document · Page 3 of 12", "Program · 1.2 MB"
+                    objectName: "subtitle"
+                    text: item.caption.label ? item.caption.label + " · " + (item.progressText || item.caption.author || item.caption.sizeText) : " "
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                    color: Theme.library.secondary
+                    font.pixelSize: 12
+                }
                 Item { Layout.fillHeight: true }
             }
 

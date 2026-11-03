@@ -40,18 +40,18 @@ void Document::setPath(const QString &path) {
     emit loaded();
 }
 
-QString Document::chapterHtml(int number, double size, const QColor &secondary) const {
+QString Document::chapterHtml(int number, double size, double lineHeight, const QColor &secondary) const {
     QString title;
     for (const QVariant &c : chapters_) {
         const QVariantMap m = c.toMap();
         if (m["number"].toInt() == number) title = m["name"].toString();
     }
     const QString text = Engine::run("text", {QString::number(number)}, bytes_, QFileInfo(path_).fileName(), kind_).output;
-    return Typesetter::chapter(text, number, title, size, secondary);
+    return Typesetter::chapter(text, number, title, size, lineHeight, secondary);
 }
 
-QString Document::markdownHtml(const QString &source, double size, const QColor &secondary, const QColor &accent) const {
-    return Typesetter::markdown(source, size, secondary, accent);
+QString Document::markdownHtml(const QString &source, double size, double lineHeight, const QColor &secondary, const QColor &accent) const {
+    return Typesetter::markdown(source, size, lineHeight, secondary, accent);
 }
 
 QString Document::hexRow(int row) const {

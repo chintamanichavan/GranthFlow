@@ -9,6 +9,8 @@ Item {
     id: root
     required property Document doc
     required property Library library
+    required property var settings
+    required property QtObject paper
     property int index: -1
     readonly property var chapter: doc.chapters[index]
 
@@ -18,10 +20,19 @@ Item {
     }
     onChapterChanged: {
         if (!chapter) return
-        page.text = doc.chapterHtml(chapter.number, Theme.bodySize, Theme.paper.secondary)
+        set()
         flick.contentY = 0
         library.recordPosition(doc.path, chapter.number, doc.chapters.length)
     }
+    // A new size, spacing or look sets the chapter again, keeping the place on the page.
+    onSettingsChanged: if (chapter) {
+        const at = flick.contentHeight > 0 ? flick.contentY / flick.contentHeight : 0
+        set()
+        flick.contentY = at * flick.contentHeight
+    }
+    onPaperChanged: if (chapter) set()
+
+    function set() { page.text = doc.chapterHtml(chapter.number, settings.size, settings.lineHeight, paper.secondary) }
 
     Shortcut { sequence: "Ctrl+Left"; enabled: root.index > 0; onActivated: root.index -= 1 }
     Shortcut { sequence: "Ctrl+Right"; enabled: root.index + 1 < root.doc.chapters.length; onActivated: root.index += 1 }
@@ -38,17 +49,17 @@ Item {
             id: page
             objectName: "page"
             y: 40
-            width: Math.min(flick.width - 64, Theme.measure)
+            width: Math.min(flick.width - 64, root.settings.measure)
             x: (flick.width - width) / 2
             readOnly: true
             selectByMouse: true
             textFormat: TextEdit.RichText
             wrapMode: TextEdit.Wrap
             font.family: Theme.serif
-            font.pointSize: Theme.bodySize
-            color: Theme.paper.label
-            selectionColor: Qt.alpha(Theme.paper.accent, 0.3)
-            selectedTextColor: Theme.paper.label
+            font.pointSize: root.settings.size
+            color: root.paper.label
+            selectionColor: Qt.alpha(root.paper.accent, 0.3)
+            selectedTextColor: root.paper.label
         }
     }
 
@@ -58,6 +69,7 @@ Item {
         ToolButton {
             objectName: "previousChapter"
             text: "‹"
+            palette.buttonText: root.paper.accent
             font.pixelSize: 22
             enabled: root.index > 0
             onClicked: root.index -= 1
@@ -73,6 +85,7 @@ Item {
                 anchors.centerIn: parent
                 width: Math.min(implicitWidth, parent.width)
                 text: root.chapter ? root.chapter.name : qsTr("Contents")
+                palette.buttonText: root.paper.accent
                 onClicked: list.popup(contents)
             }
             Menu { id: list }
@@ -86,6 +99,7 @@ Item {
         ToolButton {
             objectName: "nextChapter"
             text: "›"
+            palette.buttonText: root.paper.accent
             font.pixelSize: 22
             enabled: root.index + 1 < root.doc.chapters.length
             onClicked: root.index += 1

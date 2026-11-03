@@ -29,7 +29,7 @@ private slots:
         QCOMPARE(doc.chapters().size(), 3);
         QCOMPARE(doc.chapters()[0].toMap()["name"].toString(), QString("Opening"));
         QTextDocument page;
-        page.setHtml(doc.chapterHtml(1, 17, Qt::gray));
+        page.setHtml(doc.chapterHtml(1, 17, 1.45, Qt::gray));
         QVERIFY(page.toPlainText().contains("Hello brave world."));
     }
 

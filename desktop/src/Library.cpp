@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include "Engine.h"
+#include "ReadingSettings.h"
 
 QString LibraryEntry::name() const { return QFileInfo(path).fileName(); }
 
@@ -30,7 +31,8 @@ double LibraryEntry::progress() const {
     return kind == "pdf" ? (position + 1.0) / total : double(position) / total;
 }
 
-Library::Library(const QString &file, QObject *parent) : QAbstractListModel(parent), file_(file) {
+Library::Library(const QString &file, QObject *parent)
+    : QAbstractListModel(parent), file_(file), preferences_(QFileInfo(file).absolutePath() + "/preferences.ini", QSettings::IniFormat) {
     load();
     changed();
 }
@@ -47,13 +49,14 @@ QVariant Library::data(const QModelIndex &index, int role) const {
     case KindRole: return e.kind;
     case ProgressRole: return e.progress();
     case ProgressTextRole: return e.progressText();
+    case ModifiedRole: return QFileInfo(e.path).lastModified().toMSecsSinceEpoch();
     }
     return {};
 }
 
 QHash<int, QByteArray> Library::roleNames() const {
     return {{PathRole, "path"}, {NameRole, "name"}, {StemRole, "stem"}, {KindRole, "kind"},
-            {ProgressRole, "progress"}, {ProgressTextRole, "progressText"}};
+            {ProgressRole, "progress"}, {ProgressTextRole, "progressText"}, {ModifiedRole, "modified"}};
 }
 
 const LibraryEntry *Library::entry(const QString &path) const {
@@ -116,6 +119,23 @@ void Library::recordPosition(const QString &path, int position, int total) {
     }
 }
 
+QVariantMap Library::settings(const QString &path) const {
+    const LibraryEntry *e = entry(path);
+    if (e && !e->settings.isEmpty()) return ReadingSettings::normalized(e->settings.toVariantMap());
+    return ReadingSettings::normalized(preferences_.value("readingSettings").toMap());
+}
+
+QVariantMap Library::recordSettings(const QString &path, const QVariantMap &settings) {
+    const QJsonObject kept = ReadingSettings::toJson(settings);
+    preferences_.setValue("readingSettings", kept.toVariantMap());
+    auto it = std::find_if(entries_.begin(), entries_.end(), [&](const LibraryEntry &e) { return e.path == path; });
+    if (it != entries_.end() && it->settings != kept) {
+        it->settings = kept;
+        save();
+    }
+    return ReadingSettings::normalized(kept.toVariantMap());
+}
+
 void Library::forget(const QString &path) {
     entries_.removeIf([&](const LibraryEntry &e) { return e.path == path; });
     save();
@@ -142,6 +162,7 @@ void Library::load() {
         e.position = o.contains("position") ? o["position"].toInt() : -1;
         e.total = o.contains("total") ? o["total"].toInt() : -1;
         e.unopened = o["unopened"].toBool();
+        e.settings = o["settings"].toObject();
         entries_ << e;
     }
 }
@@ -155,6 +176,7 @@ void Library::save() const {
         if (e.position >= 0) o["position"] = e.position;
         if (e.total >= 0) o["total"] = e.total;
         if (e.unopened) o["unopened"] = true;
+        if (!e.settings.isEmpty()) o["settings"] = e.settings;
         array << o;
     }
     QDir().mkpath(QFileInfo(file_).absolutePath());

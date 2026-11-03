@@ -8,6 +8,7 @@ import GranthFlow
 ApplicationWindow {
     id: window
     required property Library library
+    required property Faces faces
     /// The file on show; empty shows the library.
     property string openPath
 
@@ -51,6 +52,7 @@ ApplicationWindow {
         active: window.openPath === ""
         sourceComponent: LibraryView {
             library: window.library
+            faces: window.faces
             onOpen: path => window.show(path)
             onAdd: picker.open()
         }

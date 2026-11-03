@@ -11,6 +11,7 @@
 #include <QTextDocument>
 #include <memory>
 
+#include "Faces.h"
 #include "Library.h"
 #include "epub_fixture.hpp"
 #include "fixtures.hpp"
@@ -34,7 +35,9 @@ class UiTest : public QObject {
     /// Opens the window, on the library or on a file.
     void start(const QString &open = {}) {
         engine = std::make_unique<QQmlApplicationEngine>();
-        engine->setInitialProperties({{"library", QVariant::fromValue(library.get())}, {"openPath", open}});
+        auto *faces = new Faces;
+        engine->addImageProvider("cover", faces);
+        engine->setInitialProperties({{"library", QVariant::fromValue(library.get())}, {"faces", QVariant::fromValue(faces)}, {"openPath", open}});
         engine->loadFromModule("GranthFlow", "Main");
         window = nullptr;
         QVERIFY(!engine->rootObjects().isEmpty());
@@ -85,6 +88,31 @@ private slots:
         QCOMPARE(library->entry(book)->progressText(), QString("Chapter 2 of 3"));
         click(find("shelf.Book.epub"));                          // opened again, at its place
         QTRY_VERIFY(shown(find("page")).contains("alpha again"));
+    }
+
+    void aBooksTypeIsSetWithAaAndKeptForIt() {
+        const QString book = file("Book.epub", QByteArray::fromStdString(epubBytes()));
+        start(book);
+        QVERIFY(find("page"));
+        click(find("typeSettings"));
+        click(find("textLarger"));
+        QTRY_COMPARE(find("textSize")->property("text").toString(), QString("18 pt"));
+        click(find("look.Night"));
+        click(find("Line spacing.Loose"));
+        const QVariantMap kept = library->settings(book);
+        QCOMPARE(kept["size"].toDouble(), 18.0);
+        QCOMPARE(kept["look"].toString(), QString("night"));
+        QCOMPARE(kept["spacing"].toString(), QString("loose"));
+        QTRY_COMPARE(find("page")->property("color").value<QColor>().name(), QString("#e2d8c4"));   // night's ink
+    }
+
+    void theShelfShowsCoversMadeFromTheFiles() {
+        file("Book.epub", QByteArray::fromStdString(epubBytes()));
+        start();
+        QQuickItem *shelved = find("shelf.Book.epub");
+        QVERIFY(shelved);
+        QTRY_COMPARE(named(shelved, "cover")->property("status").toInt(), 1);   // Image.Ready
+        QTRY_COMPARE(named(shelved, "subtitle")->property("text").toString(), QString("Book · Ada & Bob"));
     }
 
     void aNoteIsEditedPreviewedAndSaved() {

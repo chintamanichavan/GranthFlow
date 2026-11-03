@@ -14,7 +14,8 @@ Result run(const QString &command, const QStringList &args, const QByteArray &by
     std::vector<std::string> argv;
     for (const QString &a : args) argv.push_back(utf8(a));
     const anyfile::RunResult r = anyfile::runOnBytes(utf8(command), argv, bytes.toStdString(), utf8(name), utf8(kind));
-    return {r.status == anyfile::Status::Ok, QString::fromStdString(r.output), QString::fromStdString(r.error)};
+    const QByteArray out = QByteArray::fromStdString(r.output);
+    return {r.status == anyfile::Status::Ok, QString::fromUtf8(out), out, QString::fromStdString(r.error)};
 }
 
 QString meta(const QString &field, const QString &output) {

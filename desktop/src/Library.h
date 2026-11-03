@@ -4,6 +4,8 @@
 #pragma once
 #include <QAbstractListModel>
 #include <QDateTime>
+#include <QJsonObject>
+#include <QSettings>
 #include <QList>
 #include <QUrl>
 #include <QtQml/qqmlregistration.h>
@@ -17,6 +19,8 @@ struct LibraryEntry {
     int total = -1;
     /// On the shelf but not opened yet.
     bool unopened = false;
+    /// How this book is set for reading; empty until the reader changes it.
+    QJsonObject settings;
 
     QString name() const;
     /// The name without its extension, as a title for files that carry none.
@@ -34,7 +38,7 @@ class Library : public QAbstractListModel {
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 
 public:
-    enum Role { PathRole = Qt::UserRole + 1, NameRole, StemRole, KindRole, ProgressRole, ProgressTextRole };
+    enum Role { PathRole = Qt::UserRole + 1, NameRole, StemRole, KindRole, ProgressRole, ProgressTextRole, ModifiedRole };
 
     explicit Library(const QString &file, QObject *parent = nullptr);
 
@@ -53,6 +57,10 @@ public:
     Q_INVOKABLE void recordPosition(const QString &path, int position, int total);
     /// Where reading stopped in the file, or -1.
     Q_INVOKABLE int position(const QString &path) const;
+    /// How the book is set for reading (see ReadingSettings): its own settings, else the latest chosen for any book.
+    Q_INVOKABLE QVariantMap settings(const QString &path) const;
+    /// Keeps the book's new settings, and makes them the ones the next new book starts with; returns them normalized.
+    Q_INVOKABLE QVariantMap recordSettings(const QString &path, const QVariantMap &settings);
     /// Takes a file off the shelf; the file itself stays where it is.
     Q_INVOKABLE void forget(const QString &path);
 
@@ -68,6 +76,8 @@ private:
     void save() const;
 
     QString file_;
+    /// Beside the library: the latest reading settings chosen.
+    QSettings preferences_;
     QList<LibraryEntry> entries_;
     QList<LibraryEntry> shown_;
 };

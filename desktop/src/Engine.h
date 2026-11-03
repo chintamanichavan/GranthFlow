@@ -10,6 +10,8 @@ namespace Engine {
 struct Result {
     bool ok = false;
     QString output;
+    /// The output as it came, for output that is not text, such as an image read from a book.
+    QByteArray outputBytes;
     QString error;
 };
 

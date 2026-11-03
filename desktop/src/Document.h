@@ -38,8 +38,8 @@ public:
     int hexRows() const { return int((bytes_.size() + 15) / 16); }
 
     /// The chapter set for reading, as HTML.
-    Q_INVOKABLE QString chapterHtml(int number, double size, const QColor &secondary) const;
-    Q_INVOKABLE QString markdownHtml(const QString &source, double size, const QColor &secondary, const QColor &accent) const;
+    Q_INVOKABLE QString chapterHtml(int number, double size, double lineHeight, const QColor &secondary) const;
+    Q_INVOKABLE QString markdownHtml(const QString &source, double size, double lineHeight, const QColor &secondary, const QColor &accent) const;
     /// "00000010  7f 45 4c 46 …  |.ELF…|": sixteen bytes from row × 16.
     Q_INVOKABLE QString hexRow(int row) const;
     /// Writes a note's or text file's new text; false, with `error` set, when it could not be written.
