@@ -4,6 +4,7 @@
     <application
         android:name=".GranthFlowApp"
         android:label="GranthFlow"
+        android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.GranthFlow"
         android:supportsRtl="true">
         <activity
@@ -15,6 +16,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
             <!-- "Open with GranthFlow" for books, documents and notes, and any file through Share. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

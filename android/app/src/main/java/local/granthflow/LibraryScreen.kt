@@ -45,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -53,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -63,14 +66,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+/** Which tab the library shows, and whether its search is open. The icon's shortcuts set these. */
+class LibraryView {
+    var showMarks by mutableStateOf(false)
+    var searching by mutableStateOf(false)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryScreen(library: Library, store: MarkStore, onOpen: (Opening) -> Unit, onAdd: (List<Uri>) -> Unit) {
+fun LibraryScreen(library: Library, store: MarkStore, view: LibraryView, onOpen: (Opening) -> Unit, onAdd: (List<Uri>) -> Unit) {
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) onAdd(uris) }
     val palette = Theme.library()
     val entries = library.recent
-    var showMarks by rememberSaveable { mutableStateOf(false) }
-    var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     val corpus = remember { Corpus() }
     val results by produceState(emptyList<Pair<LibraryEntry, List<FindHit>>>(), query) {
@@ -84,20 +91,22 @@ fun LibraryScreen(library: Library, store: MarkStore, onOpen: (Opening) -> Unit,
             Column {
                 TopAppBar(
                     title = {
-                        if (searching) {
+                        if (view.searching) {
+                            val focus = remember { FocusRequester() }
+                            LaunchedEffect(Unit) { focus.requestFocus() }
                             TextField(
                                 value = query, onValueChange = { query = it }, singleLine = true, placeholder = { Text("Search every file") },
                                 colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent),
-                                modifier = Modifier.fillMaxWidth().testTag("searchField"),
+                                modifier = Modifier.fillMaxWidth().focusRequester(focus).testTag("searchField"),
                             )
                         } else {
                             Text("Library")
                         }
                     },
                     actions = {
-                        IconButton(onClick = { searching = !searching; query = "" }, modifier = Modifier.testTag("search")) {
-                            Icon(if (searching) Icons.Filled.Close else Icons.Filled.Search,
-                                 contentDescription = if (searching) "Stop searching" else "Search every file")
+                        IconButton(onClick = { view.searching = !view.searching; query = "" }, modifier = Modifier.testTag("search")) {
+                            Icon(if (view.searching) Icons.Filled.Close else Icons.Filled.Search,
+                                 contentDescription = if (view.searching) "Stop searching" else "Search every file")
                         }
                         IconButton(onClick = { pick.launch(arrayOf("*/*")) }, modifier = Modifier.testTag("add")) {
                             Icon(Icons.Filled.Add, contentDescription = "Add books and documents")
@@ -105,9 +114,9 @@ fun LibraryScreen(library: Library, store: MarkStore, onOpen: (Opening) -> Unit,
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = palette.window),
                 )
-                PrimaryTabRow(selectedTabIndex = if (showMarks) 1 else 0, containerColor = palette.window) {
-                    Tab(selected = !showMarks, onClick = { showMarks = false }, text = { Text("Books & Files") })
-                    Tab(selected = showMarks, onClick = { showMarks = true }, text = { Text("Marks") }, modifier = Modifier.testTag("marksTab"))
+                PrimaryTabRow(selectedTabIndex = if (view.showMarks) 1 else 0, containerColor = palette.window) {
+                    Tab(selected = !view.showMarks, onClick = { view.showMarks = false }, text = { Text("Books & Files") })
+                    Tab(selected = view.showMarks, onClick = { view.showMarks = true }, text = { Text("Marks") }, modifier = Modifier.testTag("marksTab"))
                 }
             }
         },
@@ -131,7 +140,7 @@ fun LibraryScreen(library: Library, store: MarkStore, onOpen: (Opening) -> Unit,
                     }
                 }
             }
-        } else if (showMarks) {
+        } else if (view.showMarks) {
             val marks = store.all
             if (marks.isEmpty()) {
                 Box(Modifier.padding(padding).fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {

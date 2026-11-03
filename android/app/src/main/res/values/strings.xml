@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_search">Search</string>
+    <string name="shortcut_search_long">Search every file</string>
+    <string name="shortcut_marks">Marks</string>
+    <string name="shortcut_marks_long">My marks</string>
+</resources>

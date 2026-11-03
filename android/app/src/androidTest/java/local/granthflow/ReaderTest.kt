@@ -10,6 +10,8 @@ import android.text.style.UnderlineSpan
 import android.widget.TextView
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -20,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -241,5 +244,24 @@ class ReaderTest {
     @Test fun anyOtherFileShowsItsBytes() {
         open(byteArrayOf(0x7f, 0x45, 0x4c, 0x46, 0, 1, 0xde.toByte(), 0xad.toByte()), "bin")      // zero bytes: not text
         waitForCompose("hex", "7f 45 4c 46 00 01 de ad")
+    }
+
+    @Test fun theIconsMenuOffersABookPartWayThroughAndOpensIt() {
+        val file = File(app.books, "t-${UUID.randomUUID()}.epub").apply { writeBytes(Fixtures.epub()) }
+        app.library.add(listOf(file to "epub"))
+        app.library.recordOpened(file.path, "epub")
+        app.library.recordPosition(file.path, 1, 2)                        // chapter 1 of 2
+        Shortcuts.update(app, app.library)
+        val shortcut = ShortcutManagerCompat.getDynamicShortcuts(app).first { it.id == file.path }
+        assertEquals("Tiny Book", shortcut.shortLabel)
+        launched += ActivityScenario.launch(shortcut.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        waitFor("page", "Hello book & reader.")
+    }
+
+    @Test fun theIconsMenuOpensMarksAndSearch() {
+        launched += ActivityScenario.launch(Intent(Shortcuts.MARKS, null, app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        compose.onNodeWithTag("marksTab").assertIsSelected()
+        launched.last().onActivity { it.startActivity(Intent(Shortcuts.SEARCH, null, app, MainActivity::class.java)) }   // onto the open app
+        compose.waitUntil(10_000) { runCatching { compose.onNodeWithTag("searchField").assertIsFocused() }.isSuccess }
     }
 }

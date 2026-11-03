@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The icon's menu, with the books part-way through that Shortcuts.update adds. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="search" android:icon="@drawable/shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search" android:shortcutLongLabel="@string/shortcut_search_long">
+        <intent android:action="local.granthflow.SEARCH"
+            android:targetPackage="local.granthflow" android:targetClass="local.granthflow.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="marks" android:icon="@drawable/shortcut_marks"
+        android:shortcutShortLabel="@string/shortcut_marks" android:shortcutLongLabel="@string/shortcut_marks_long">
+        <intent android:action="local.granthflow.MARKS"
+            android:targetPackage="local.granthflow" android:targetClass="local.granthflow.MainActivity" />
+    </shortcut>
+</shortcuts>

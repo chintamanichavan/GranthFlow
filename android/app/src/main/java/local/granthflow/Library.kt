@@ -56,6 +56,9 @@ class Library(private val file: File) {
     /** Most recent first, leaving out files that have gone. */
     val recent: List<LibraryEntry> get() = entries.filter { it.file.exists() }.sortedByDescending { it.opened }
 
+    /** Books and documents part-way through, most recent first. */
+    val continueReading: List<LibraryEntry> get() = recent.filter { e -> e.progress?.let { it < 1f } == true }
+
     fun entry(path: String) = entries.firstOrNull { it.path == path }
 
     fun recordOpened(path: String, kind: String, at: Instant = Instant.now()) {
