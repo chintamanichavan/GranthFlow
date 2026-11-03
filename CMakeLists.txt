@@ -68,15 +68,18 @@ else()
 
   install(TARGETS anyfile RUNTIME DESTINATION bin)
 
-  enable_testing()
-  add_test(NAME smoke COMMAND ${CMAKE_SOURCE_DIR}/tests/run_tests.sh $<TARGET_FILE:anyfile>)
+  # The engine's own tests, when it is built by itself rather than inside an app's build.
+  if(PROJECT_IS_TOP_LEVEL)
+    enable_testing()
+    add_test(NAME smoke COMMAND ${CMAKE_SOURCE_DIR}/tests/run_tests.sh $<TARGET_FILE:anyfile>)
 
-  # Unit tests: one executable per module, all registered with CTest.
-  foreach(mod lexer parser filters util document text handlers zip xml book engine)
-    add_executable(${mod}_test tests/unit/${mod}_test.cpp)
-    target_link_libraries(${mod}_test PRIVATE anyfile_core)
-    target_include_directories(${mod}_test PRIVATE tests/unit)
-    target_compile_options(${mod}_test PRIVATE -Wall -Wextra)
-    add_test(NAME unit_${mod} COMMAND ${mod}_test)
-  endforeach()
+    # Unit tests: one executable per module, all registered with CTest.
+    foreach(mod lexer parser filters util document text handlers zip xml book engine)
+      add_executable(${mod}_test tests/unit/${mod}_test.cpp)
+      target_link_libraries(${mod}_test PRIVATE anyfile_core)
+      target_include_directories(${mod}_test PRIVATE tests/unit)
+      target_compile_options(${mod}_test PRIVATE -Wall -Wextra)
+      add_test(NAME unit_${mod} COMMAND ${mod}_test)
+    endforeach()
+  endif()
 endif()
