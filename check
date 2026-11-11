@@ -1,0 +1,58 @@
+#!/bin/bash
+# ./check: builds and tests the C++ engine (ctest: unit modules + end-to-end) and runs the
+# Mac app's unit tests (AnyfileTests). About 30 s when little has changed.
+# Not covered: the Mac UI tests (need Accessibility permission), and the granthflow Python
+# app (no virtual environment with its dev dependencies yet; see pyproject.toml).
+# Contract: no arguments, any cwd, exit 0 green, 1 a test failed, 2 could not run
+# (missing tool, or a suite that did not finish within its limit).
+cd "$(dirname "$0")" || exit 2
+
+# Own environment, so a GUI git client or a bare hook behaves like a terminal.
+PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+unset SDKROOT   # ~/.zprofile pins it to the Command Line Tools; xcodebuild needs Xcode's
+limit=300       # seconds per suite
+# Tests swap these in. Ignored unless asked for, so a stray variable cannot weaken the check.
+if [ "$CHECK_TEST" = 1 ]; then
+  PATH="${CHECK_PATH:-$PATH}"
+  limit="${CHECK_LIMIT:-$limit}"
+fi
+
+for t in cmake ctest xcodebuild; do
+  command -v "$t" >/dev/null || { echo "check: $t not found, cannot run" >&2; exit 2; }
+done
+
+# run NAME COMMAND...: 0 pass, 1 fail, 2 did not finish. macOS has no timeout(1), so a
+# watchdog stops the suite's whole process group (set -m gives each job its own).
+run() {
+  local name=$1 pid dog st; shift
+  set -m
+  "$@" </dev/null &
+  pid=$!
+  ( sleep "$limit"; kill -TERM -- -"$pid" ) >/dev/null 2>&1 &
+  dog=$!
+  wait "$pid"; st=$?
+  { kill -TERM -- -"$dog"; wait "$dog"; } 2>/dev/null   # quietly: job control reports kills
+  set +m
+  if [ "$st" -ge 128 ]; then echo "check: $name did not finish in ${limit}s" >&2; return 2; fi
+  if [ "$st" = 0 ]; then echo "ok   $name"; return 0; fi
+  echo "FAIL $name"; return 1
+}
+
+# Builds go under build/check (git-ignored), never the developer's own build/ folder.
+engine() {
+  { [ -f build/check/CMakeCache.txt ] || cmake -S . -B build/check >/dev/null; } &&
+    cmake --build build/check -j8 >/dev/null &&
+    ctest --test-dir build/check --output-on-failure
+}
+mac() {
+  xcodebuild -project mac/Anyfile.xcodeproj -scheme Anyfile \
+    -destination 'platform=macOS,arch=arm64' -derivedDataPath build/check-mac \
+    -only-testing:AnyfileTests -quiet test 2>&1 | grep -v -e DVTErrorPresenter -e CoreSimulator -e IDETestOperationsObserverDebug -e "^Testing started$"
+  return "${PIPESTATUS[0]}"
+}
+
+rc=0
+note() { if [ "$1" = 1 ]; then rc=1; elif [ "$1" = 2 ] && [ "$rc" = 0 ]; then rc=2; fi; }
+run engine engine; note $?
+run mac mac;       note $?
+exit "$rc"
