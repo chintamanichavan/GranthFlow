@@ -39,9 +39,9 @@ expect "a missing tool exits 2" 2 "cmake not found" -- env CHECK_TEST=1 CHECK_PA
 rm -rf "$nocm"
 
 # A hung suite is stopped by check's own limit and leaves nothing running.
-printf '\nadd_test(NAME planted_hang COMMAND sleep 37)\n' >> "$c/CMakeLists.txt"
+printf '\nadd_test(NAME planted_hang COMMAND sleep 3703)\n' >> "$c/CMakeLists.txt"
 expect "a hung suite exits 2" 2 "did not finish" -- env CHECK_TEST=1 CHECK_LIMIT=20 "$c/check"
-pgrep -qx -f 'sleep 37' && bad "hung suite left running" || ok "hung suite is killed"
+pgrep -q -f '(^|/)sleep 3703$' && bad "hung suite left running" || ok "hung suite is killed"
 rm -rf "$c"
 
 [ "$fail" = 0 ] && echo "all passed"
