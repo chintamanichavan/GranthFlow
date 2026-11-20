@@ -83,7 +83,10 @@ final class PageTurnTests: XCTestCase {
         t.turn(from: old, forward: true)
         t.display()
         let shown = try XCTUnwrap(t.turnView)
-        XCTAssertTrue(t.subviews.last === shown, "the turn is not the topmost view")
+        // Above the page, not necessarily last: the Metal and crossfade views both sit above it and only
+        // one shows (crossfade under Reduce Motion), so either may be the one drawn.
+        let pageAt = try XCTUnwrap(t.subviews.firstIndex { $0 === t.content }), shownAt = try XCTUnwrap(t.subviews.firstIndex { $0 === shown })
+        XCTAssertGreaterThan(shownAt, pageAt, "the turn is beneath the page")
         let scrollLayer = try XCTUnwrap(t.scroll.layer), turnLayer = try XCTUnwrap(shown.layer)
         let order = t.layer?.sublayers ?? []
         let scrollAt = try XCTUnwrap(order.firstIndex { $0 === scrollLayer }), turnAt = try XCTUnwrap(order.firstIndex { $0 === turnLayer })

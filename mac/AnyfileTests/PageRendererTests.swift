@@ -1,6 +1,7 @@
 import XCTest
 import SwiftUI
 import simd
+import Metal
 @testable import Anyfile
 
 @MainActor
@@ -62,11 +63,23 @@ final class PageRendererTests: XCTestCase {
         let renderer = try XCTUnwrap(PageRenderer())
         let old = page("Loomings", 1, width: 1100, height: 750), new = page("The Carpet-Bag", 2, width: 1100, height: 750)
         renderer.setPages(turning: old, beneath: new)
-        _ = renderer.image(progress: 0.5, width: old.width, height: old.height)          // warm up
+        // Timed as the app draws a frame: into a GPU-only texture, as a drawable is, with no read-back
+        // to the CPU (image(progress:) copies 13 MB back per frame, which the app never does).
+        let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: PageRenderer.pixelFormat, width: old.width, height: old.height, mipmapped: false)
+        desc.usage = .renderTarget
+        desc.storageMode = .private
+        let target = try XCTUnwrap(renderer.device.makeTexture(descriptor: desc))
+        func frame(_ progress: Float) throws {
+            let cb = try XCTUnwrap(renderer.makeCommandBuffer())
+            renderer.draw(progress: progress, into: target, commandBuffer: cb)
+            cb.commit()
+            cb.waitUntilCompleted()
+        }
+        try frame(0.5)                                                                     // warm up
         let start = Date()
-        for k in 0..<20 { _ = renderer.image(progress: Float(k) / 20, width: old.width, height: old.height) }
+        for k in 0..<20 { try frame(Float(k) / 20) }
         let perFrame = Date().timeIntervalSince(start) / 20
-        print(String(format: "physical page turn frame at %dx%d (with read-back): %.1f ms", old.width, old.height, perFrame * 1000))
+        print(String(format: "physical page turn frame at %dx%d: %.1f ms", old.width, old.height, perFrame * 1000))
         XCTAssertLessThan(perFrame, 1.0 / 60)
     }
 
