@@ -14,7 +14,9 @@ namespace {
 class StagedFile {
 public:
     StagedFile(const std::string& bytes, const std::string& name) {
-        static std::mt19937_64 rng{std::random_device{}()};
+        // One generator per thread: platforms call the engine from several threads at once, and a
+        // shared one raced, handing two calls the same directory so one deleted the other's file.
+        thread_local std::mt19937_64 rng{std::random_device{}()};
         std::error_code ec;
         dir_ = std::filesystem::temp_directory_path(ec) / ("anyfile-" + std::to_string(rng()));
         std::filesystem::create_directories(dir_, ec);
