@@ -116,11 +116,25 @@ Xcode and press Run; it signs to run locally, so no Apple developer account is n
   the file update the document with Undo support, and Save writes it back.
 - `Anyfile --open <path>` opens a file from the command line.
 
-Layout: `mac/Anyfile/Bridge` is the Objective-C++ bridge (the only place Swift meets C++),
-`mac/Anyfile/*.swift` the document and engine wrapper, `mac/Anyfile/Views` the panes.
+Layout: `mac/Shared/Bridge` is the Objective-C++ bridge (the only place Swift meets C++),
+`mac/Shared/` the Swift shared with the iPhone and iPad app (document, engine wrapper, library,
+marks, covers, reading settings), `mac/Anyfile/` the Mac-only app and its views.
 Tests: `mac/AnyfileTests` (engine bridge and document, 19 cases) and `mac/AnyfileUITests`
 (opens real files and drives the window, 7 cases). Run them with Cmd-U in Xcode; UI tests need
 Accessibility permission for the test runner the first time.
+
+## iPhone, iPad and Android apps
+
+- **iPhone and iPad**: `mac/iOS/`, the `GranthFlowiOS` scheme in `mac/Anyfile.xcodeproj`, built on
+  the same `mac/Shared/` code as the Mac app: covers, marks and notes, find, search across every
+  file, read aloud, and Shortcuts and Siri.
+- **Android**: `android/`, Kotlin over the engine through JNI, with covers, per-book Aa settings,
+  marks and notes, find, search, read aloud and launcher shortcuts.
+
+```sh
+cd android && ./gradlew assembleDebug       # the engine is built by Gradle's CMake step
+./gradlew test connectedAndroidTest         # JVM tests, then instrumented tests on a device or emulator
+```
 
 ## One engine, many platforms
 
@@ -134,11 +148,11 @@ Every binding is translation only:
 | platform | binding | what it translates to |
 |---|---|---|
 | CLI | `src/main.cpp` | argv and stdout |
-| Mac | `mac/Anyfile/Bridge/AFEngine.mm` | `NSData`, `NSString`, `NSArray` |
+| Mac, iPhone, iPad | `mac/Shared/Bridge/AFEngine.mm` | `NSData`, `NSString`, `NSArray` |
 | Web | `src/wasm/engine_wasm.cpp` | `Uint8Array`, JS strings and objects |
+| Android | `android/app/src/main/cpp/engine_jni.cpp` | `jbyteArray`, `jstring`, `jobjectArray` |
 
-Each is under a hundred lines. A new platform — Android over JNI, Windows, iOS — writes one more
-of these and gets every format and command the CLI has, with no parsing logic of its own.
+Each is under a hundred lines. A new platform writes one more of these and gets every format and command the CLI has, with no parsing logic of its own.
 
 ## Web app (PWA)
 
@@ -232,7 +246,8 @@ src/handlers/         text, markdown, pdf, epub handlers
 src/pdf/              lexer, parser, object model, filters, document (xref + save), text extraction
 src/epub/             zip archive, XML tokenizer, book (package, spine, chapter text, edits)
 src/wasm/             the WebAssembly binding (embind)
-mac/                  SwiftUI app, Objective-C++ bridge, XCTest and XCUITest targets
+mac/                  SwiftUI Mac and iOS apps, shared code and Objective-C++ bridge, XCTest and XCUITest targets
+android/              Android app (Kotlin), JNI binding in app/src/main/cpp/
 web/                  the PWA: shell, service worker, manifest, and the built engine in vendor/
 web/app/engine.js     JavaScript's view of the engine, the counterpart of Engine.swift
 web/app/store.js      IndexedDB, in the Mac app's library.json / marks.json shape
